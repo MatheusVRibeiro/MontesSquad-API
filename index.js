@@ -13,7 +13,7 @@ app.use(router);
 const porta = process.env.PORT || 3333;
 
 app.listen(porta, () => {
-    console.log(`Servidor iniciado em https://localhost:${porta}`);
+    console.log(`Servidor iniciado em http://localhost:${porta}`);
 });
 
 app.get('/', (request, response) => {
