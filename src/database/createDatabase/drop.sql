@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS estatisticas_usuario;
+DROP TABLE IF EXISTS mensagens;
+DROP TABLE IF EXISTS avaliacoes;
+DROP TABLE IF EXISTS membros_equipe;
+DROP TABLE IF EXISTS candidaturas;
+DROP TABLE IF EXISTS habilidades_projeto;
+DROP TABLE IF EXISTS habilidades_usuario;
+DROP TABLE IF EXISTS projetos;
+DROP TABLE IF EXISTS habilidades;
+DROP TABLE IF EXISTS usuarios;
