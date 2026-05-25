@@ -1,13 +1,13 @@
 const db = require("../database/connection");
 
 module.exports = {
-  async listarProjetos(request, response) {
+  async listaravaliacao(request, response) {
     try {
 
       const sql = `
           SELECT 
             id, criador_id, titulo, descricao, status, criado_em
-            FROM projetos 
+            FROM avaliacao 
         `;
 
       const [row] = await db.query(sql);
@@ -15,14 +15,14 @@ module.exports = {
 
       return response.status(200).json({
         sucesso: true,
-        message: "Lista de projetos",
+        message: "Lista de avaliacao",
         nItens,
         dados: row,
       });
     } catch (error) {
       return response.status(500).json({
         sucesso: false,
-        message: "Erro na listagem de projetos ",
+        message: "Erro na listagem de avaliacao ",
         dados: error.message,
       });
     }
@@ -32,7 +32,7 @@ module.exports = {
       const { criador_id, titulo, descricao, status } = request.body;
       
       const sql = `
-        INSERT INTO projetos (criador_id, titulo, descricao, status)
+        INSERT INTO avaliacao (criador_id, titulo, descricao, status)
         VALUES (?, ?, ?, ?);
 
       `;
@@ -68,7 +68,7 @@ module.exports = {
         const { id } = request.params;
 
         const sql = `
-        UPDATE projetos
+        UPDATE avaliacao
         SET criador_id = ?, titulo = ?, descricao = ?, status = ?
         WHERE id = ?;
         `;
@@ -108,7 +108,7 @@ module.exports = {
     try {
       const { id } = request.params;
 
-      const sql = `DELETE FROM projetos WHERE id = ?`;
+      const sql = `DELETE FROM avaliacao WHERE id = ?`;
 
       const [result] = await db.query(sql, [id]);
 
