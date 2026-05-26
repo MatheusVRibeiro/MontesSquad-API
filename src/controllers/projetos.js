@@ -1,7 +1,7 @@
 const db = require("../database/connection");
 
 module.exports = {
-  async listaravaliacao(request, response) {
+  async listarProjetos(request, response) {
     try {
 
       const sql = `

@@ -85,10 +85,12 @@ CREATE TABLE avaliacoes (
 CREATE TABLE mensagens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     remetente_id INT,
-    destinatario_id INT,
+    projeto_id INT NULL,
+    destinatario_id INT NULL,
     conteudo TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (remetente_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
     FOREIGN KEY (destinatario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

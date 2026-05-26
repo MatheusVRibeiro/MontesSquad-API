@@ -1,3 +1,4 @@
+const bcrypt = require("bcryptjs");
 const db = require("../database/connection");
 
 module.exports = {
@@ -30,6 +31,16 @@ module.exports = {
   async cadastrarUsuario(request, response) {
     try {
       const { nome, email, senha, bio, localizacao } = request.body;
+
+      if (!nome || !email || !senha) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "nome, email e senha são obrigatórios",
+          dados: null,
+        });
+      }
+
+      const senhaCriptografada = await bcrypt.hash(senha, 10);
       
       const sql = `
         INSERT INTO usuarios (nome, email, senha, bio, localizacao)
@@ -37,7 +48,7 @@ module.exports = {
 
       `;
 
-      const values = [nome, email, senha, bio, localizacao];
+      const values = [nome, email, senhaCriptografada, bio, localizacao];
 
       const [result] = await db.query(sql, values);
 

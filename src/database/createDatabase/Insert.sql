@@ -55,11 +55,11 @@ INSERT INTO avaliacoes (avaliador_id, avaliado_id, projeto_id, nota, comentario)
 (4, 2, 2, 5, 'Pipeline de dados excelente e bem estruturada.');
 
 -- 9. Inserir Mensagens
-INSERT INTO mensagens (remetente_id, destinatario_id, conteudo) VALUES 
-(2, 1, 'Olá Lucas, vi seu projeto de API. Posso ajudar com a parte de dados?'),
-(1, 2, 'Oi Fernanda! Claro, seria ótimo ter você no time.'),
-(3, 1, 'Lucas, a integração da API com o Front já está rodando.'),
-(4, 2, 'Fernanda, os containers do Docker já estão na nuvem.');
+INSERT INTO mensagens (remetente_id, projeto_id, destinatario_id, conteudo) VALUES 
+(2, 1, NULL, 'Olá time, vi o projeto de API. Posso ajudar com a parte de dados?'),
+(1, 1, NULL, 'Oi pessoal! Claro, seria ótimo ter ajuda no projeto.'),
+(3, 2, NULL, 'Time do dashboard, a integração já está rodando.'),
+(4, 2, NULL, 'Equipe, os containers do Docker já estão na nuvem.');
 
 -- 10. Inserir Estatísticas Consolidadas
 INSERT INTO estatisticas_usuario (usuario_id, media_notas, total_avaliacoes, projetos_concluidos) VALUES 

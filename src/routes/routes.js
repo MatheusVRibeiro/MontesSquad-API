@@ -6,6 +6,8 @@ const projetosController = require('../controllers/projetos');
 const habilidadesController = require('../controllers/habilidades');
 const habilidadesUsuarioController = require('../controllers/habilidades_usuario');
 const habilidadesProjetoController = require('../controllers/habilidades_projeto');
+const mensagensController = require('../controllers/mensagens');
+const autenticacaoController = require('../controllers/autenticacao');
 
 // ROTAS USUÁRIOS
 router.get('/usuarios', usuariosController.listarUsuarios);
@@ -36,5 +38,14 @@ router.get('/habilidades-projeto', habilidadesProjetoController.listarHabilidade
 router.post('/habilidades-projeto', habilidadesProjetoController.cadastrarHabilidadesProjeto);
 router.patch('/habilidades-projeto/:id', habilidadesProjetoController.editarHabilidadesProjeto);
 router.delete('/habilidades-projeto/:id', habilidadesProjetoController.apagarHabilidadesProjeto);
+
+// ROTAS MENSAGENS DO PROJETO
+router.get('/projetos/:projetoId/mensagens', mensagensController.listarMensagensProjeto);
+router.post('/projetos/:projetoId/mensagens', mensagensController.enviarMensagemProjeto);
+
+// ROTAS AUTENTICAÇÃO
+router.post('/login', autenticacaoController.login);
+router.post('/recuperar-senha', autenticacaoController.recuperarSenha);
+router.post('/resetar-senha', autenticacaoController.resetarSenha);
 
 module.exports = router;
