@@ -27,3 +27,15 @@ SELECT * FROM mensagens;
 
 -- Estatisticas_Usuario
 SELECT * FROM estatisticas_usuario;
+
+-- Tarefas (Kanban)
+SELECT * FROM tarefas;
+
+-- Subtarefas (Checklist)
+SELECT * FROM subtarefas;
+
+-- Conquistas (Achievements)
+SELECT * FROM conquistas;
+
+-- Conquistas_Usuario
+SELECT * FROM conquistas_usuario;

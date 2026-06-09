@@ -40,7 +40,8 @@ module.exports = {
   async enviarMensagemProjeto(request, response) {
     try {
       const { projetoId } = request.params;
-      const { remetente_id, conteudo } = request.body;
+      const { conteudo } = request.body;
+      const remetente_id = request.usuarioAutenticado ? request.usuarioAutenticado.id : request.body.remetente_id;
 
       if (!remetente_id || !conteudo) {
         return response.status(400).json({

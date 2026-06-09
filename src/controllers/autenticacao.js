@@ -14,6 +14,7 @@ function gerarTokenLogin(usuario) {
       id: usuario.id,
       email: usuario.email,
       nome: usuario.nome,
+      tipo: usuario.tipo,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -80,7 +81,7 @@ module.exports = {
       }
 
       const sql = `
-        SELECT id, nome, email, senha
+        SELECT id, nome, email, senha, tipo
         FROM usuarios
         WHERE email = ?
         LIMIT 1
@@ -117,6 +118,7 @@ module.exports = {
           id: usuario.id,
           nome: usuario.nome,
           email: usuario.email,
+          tipo: usuario.tipo,
         },
       });
     } catch (error) {

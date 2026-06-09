@@ -74,26 +74,27 @@ module.exports = {
   },
   async editarUsuario(request, response) {
     try {
+      const { nome, email, bio, localizacao, senha } = request.body;
+      const { id } = request.params;
 
-        const { nome, email, bio, localizacao } = request.body;
-        const { id } = request.params;
+      const fields = [];
+      const values = [];
 
-        const sql = `
-        UPDATE usuarios
-        SET nome = ?, email = ?, bio = ?, localizacao = ?
-        WHERE id = ?;
-        `;
-        const values = [nome, email, bio, localizacao, id];
+      if (nome !== undefined) { fields.push("nome = ?"); values.push(nome); }
+      if (email !== undefined) { fields.push("email = ?"); values.push(email); }
+      if (bio !== undefined) { fields.push("bio = ?"); values.push(bio); }
+      if (localizacao !== undefined) { fields.push("localizacao = ?"); values.push(localizacao); }
+      if (senha !== undefined && senha !== "") {
+        const senhaCriptografada = await bcrypt.hash(senha, 10);
+        fields.push("senha = ?");
+        values.push(senhaCriptografada);
+      }
+
+      if (fields.length > 0) {
+        values.push(id);
+        const sql = `UPDATE usuarios SET ${fields.join(", ")} WHERE id = ?;`;
         const [result] = await db.query(sql, values);
 
-        const dados = {
-          id,
-          nome,
-          email,
-          bio,
-          localizacao,
-        };
-    
         if (result.affectedRows === 0) {
           return response.status(404).json({
             sucesso: false,
@@ -101,8 +102,23 @@ module.exports = {
             dados: null,
           });
         }
+      }
 
-        return response.status(200).json({
+      // Busca dados atuais do usuário para responder com o objeto atualizado
+      const [userRows] = await db.query(
+        "SELECT id, nome, email, bio, localizacao, tipo FROM usuarios WHERE id = ? LIMIT 1",
+        [id]
+      );
+
+      const dados = userRows[0] || {
+        id,
+        nome,
+        email,
+        bio,
+        localizacao,
+      };
+
+      return response.status(200).json({
         sucesso: true,
         message: `Usuário atualizado com sucesso!`,
         dados

@@ -1,3 +1,7 @@
+DROP TABLE IF EXISTS subtarefas;
+DROP TABLE IF EXISTS tarefas;
+DROP TABLE IF EXISTS conquistas_usuario;
+DROP TABLE IF EXISTS conquistas;
 DROP TABLE IF EXISTS estatisticas_usuario;
 DROP TABLE IF EXISTS mensagens;
 DROP TABLE IF EXISTS avaliacoes;
