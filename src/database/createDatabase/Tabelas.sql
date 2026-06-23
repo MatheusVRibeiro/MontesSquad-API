@@ -24,6 +24,10 @@ CREATE TABLE projetos (
     descricao TEXT,
     status ENUM('aberto', 'em_andamento', 'finalizado') DEFAULT 'aberto',
     limite_membros INT DEFAULT 5 NOT NULL,
+    repositorio_url VARCHAR(255) NULL,
+    figma_url VARCHAR(255) NULL,
+    discord_url VARCHAR(255) NULL,
+    documentacao_url VARCHAR(255) NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (criador_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

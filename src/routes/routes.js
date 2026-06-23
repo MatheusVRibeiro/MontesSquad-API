@@ -36,6 +36,8 @@ router.delete("/usuarios/:id", verificarToken, somenteAdm, usuariosController.ap
 // ROTAS PROJETOS
 // Todos logados podem explorar projetos
 router.get("/projetos", verificarToken, projetosController.listarProjetos);
+// Obter detalhes de um projeto específico
+router.get("/projetos/:id", verificarToken, projetosController.obterProjeto);
 // Qualquer membro logado pode cadastrar um novo projeto
 router.post("/projetos", verificarToken, projetosController.cadastrarProjeto);
 // Apenas o dono do projeto pode editar ou apagar
