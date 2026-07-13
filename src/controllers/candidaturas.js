@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async candidatarSe(request, response) {
+  async candidatarSe(request, response, next) {
     try {
       const { projetoId } = request.params;
       const { mensagem } = request.body;
@@ -70,15 +71,11 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao enviar candidatura",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao enviar candidatura", 500, error));
     }
   },
 
-  async listarCandidaturas(request, response) {
+  async listarCandidaturas(request, response, next) {
     try {
       const { projetoId } = request.params;
 
@@ -99,15 +96,11 @@ module.exports = {
         dados: rows,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao listar candidaturas",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao listar candidaturas", 500, error));
     }
   },
 
-  async atualizarStatusCandidatura(request, response) {
+  async atualizarStatusCandidatura(request, response, next) {
     try {
       const { projetoId, candidaturaId } = request.params;
       const { status } = request.body; // 'aceito' ou 'rejeitado'
@@ -198,11 +191,8 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao processar candidatura",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao processar candidatura", 500, error));
     }
   },
 };
+

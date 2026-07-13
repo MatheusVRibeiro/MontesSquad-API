@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarHabilidades(request, response) {
+  async listarHabilidades(request, response, next) {
     try {
 
       const sql = `
@@ -20,14 +21,10 @@ module.exports = {
         dados: row,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de habilidades ",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de habilidades", 500, error));
     }
   },
-  async cadastrarHabilidade(request, response) {
+  async cadastrarHabilidade(request, response, next) {
     try {
       const { nome } = request.body;
       
@@ -51,14 +48,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no cadastro de habilidade",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no cadastro de habilidade", 500, error));
     }
   },
-  async editarHabilidade(request, response) {
+  async editarHabilidade(request, response, next) {
     try {
 
         const { nome } = request.body;
@@ -91,14 +84,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na edição de habilidade",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na edição de habilidade", 500, error));
     }
   },
-  async apagarHabilidade(request, response) {
+  async apagarHabilidade(request, response, next) {
     try {
       const { id } = request.params;
 
@@ -120,11 +109,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao deletar habilidade",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao deletar habilidade", 500, error));
     }
   },
 };
+

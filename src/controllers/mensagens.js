@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarMensagensProjeto(request, response) {
+  async listarMensagensProjeto(request, response, next) {
     try {
       const { projetoId } = request.params;
 
@@ -29,15 +30,11 @@ module.exports = {
         dados: rows,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de mensagens",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de mensagens", 500, error));
     }
   },
 
-  async enviarMensagemProjeto(request, response) {
+  async enviarMensagemProjeto(request, response, next) {
     try {
       const { projetoId } = request.params;
       const { conteudo } = request.body;
@@ -70,11 +67,7 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao enviar mensagem",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao enviar mensagem", 500, error));
     }
   },
-};
+};

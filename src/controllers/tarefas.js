@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarTarefas(request, response) {
+  async listarTarefas(request, response, next) {
     try {
       const { projetoId } = request.params;
 
@@ -32,15 +33,11 @@ module.exports = {
         dados: tasks,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao listar tarefas",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao listar tarefas", 500, error));
     }
   },
 
-  async criarTarefa(request, response) {
+  async criarTarefa(request, response, next) {
     try {
       const { projetoId } = request.params;
       const { titulo, descricao, responsavel_id, prioridade, data_vencimento } = request.body;
@@ -84,15 +81,11 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao criar tarefa",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao criar tarefa", 500, error));
     }
   },
 
-  async atualizarTarefa(request, response) {
+  async atualizarTarefa(request, response, next) {
     try {
       const { projetoId, tarefaId } = request.params;
       const { titulo, descricao, status, responsavel_id, prioridade, data_vencimento, subtasks } = request.body;
@@ -155,15 +148,11 @@ module.exports = {
         dados: updatedTask,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao atualizar tarefa",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao atualizar tarefa", 500, error));
     }
   },
 
-  async apagarTarefa(request, response) {
+  async apagarTarefa(request, response, next) {
     try {
       const { projetoId, tarefaId } = request.params;
 
@@ -186,11 +175,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao excluir tarefa",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao excluir tarefa", 500, error));
     }
   },
 };
+

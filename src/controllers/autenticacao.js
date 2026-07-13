@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
@@ -68,7 +69,7 @@ async function compararSenha(senhaDigitada, senhaArmazenada) {
 }
 
 module.exports = {
-  async login(request, response) {
+  async login(request, response, next) {
     try {
       const { email, senha } = request.body;
 
@@ -122,15 +123,11 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no login",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no login", 500, error));
     }
   },
 
-  async recuperarSenha(request, response) {
+  async recuperarSenha(request, response, next) {
     try {
       const { email } = request.body;
 
@@ -193,15 +190,11 @@ module.exports = {
         },
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao recuperar senha",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao recuperar senha", 500, error));
     }
   },
 
-  async resetarSenha(request, response) {
+  async resetarSenha(request, response, next) {
     try {
       const { token, novaSenha } = request.body;
 
@@ -238,11 +231,7 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(400).json({
-        sucesso: false,
-        message: "Token inválido ou expirado",
-        dados: error.message,
-      });
+      return next(new AppError("Token inválido ou expirado", 400, error));
     }
   },
 };

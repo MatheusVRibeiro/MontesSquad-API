@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarMembros(request, response) {
+  async listarMembros(request, response, next) {
     try {
       const { projetoId } = request.params;
 
@@ -22,15 +23,11 @@ module.exports = {
         dados: rows,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao listar membros do squad",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao listar membros do squad", 500, error));
     }
   },
 
-  async removerMembro(request, response) {
+  async removerMembro(request, response, next) {
     try {
       const { projetoId, usuarioId } = request.params;
 
@@ -75,11 +72,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao remover membro do squad",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao remover membro do squad", 500, error));
     }
   },
 };
+

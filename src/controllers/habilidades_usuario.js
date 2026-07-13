@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarHabilidadesUsuario(request, response) {
+  async listarHabilidadesUsuario(request, response, next) {
     try {
 
       const sql = `
@@ -20,14 +21,10 @@ module.exports = {
         dados: row,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de habilidades do usuário ",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de habilidades do usuário", 500, error));
     }
   },
-  async cadastrarHabilidadesUsuario(request, response) {
+  async cadastrarHabilidadesUsuario(request, response, next) {
     try {
       const { usuario_id, habilidade_id, nivel } = request.body;
       
@@ -52,14 +49,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no cadastro de habilidades do usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no cadastro de habilidades do usuário", 500, error));
     }
   },
-  async editarHabilidadesUsuario(request, response) {
+  async editarHabilidadesUsuario(request, response, next) {
     try {
 
         const { usuario_id, habilidade_id, nivel } = request.body;
@@ -95,14 +88,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na edição de habilidades do usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na edição de habilidades do usuário", 500, error));
     }
   },
-  async apagarHabilidadesUsuario(request, response) {
+  async apagarHabilidadesUsuario(request, response, next) {
     try {
       const { id } = request.params;
 
@@ -124,11 +113,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao deletar habilidades do usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao deletar habilidades do usuário", 500, error));
     }
   },
 };
+

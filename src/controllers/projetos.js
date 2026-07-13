@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarProjetos(request, response) {
+  async listarProjetos(request, response, next) {
     try {
       const sql = `
         SELECT 
@@ -32,14 +33,10 @@ module.exports = {
         dados: row,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de projetos ",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de projetos", 500, error));
     }
   },
-  async cadastrarProjeto(request, response) {
+  async cadastrarProjeto(request, response, next) {
     try {
       const criador_id = request.usuarioAutenticado ? request.usuarioAutenticado.id : request.body.criador_id;
       const titulo = request.body.titulo || request.body.name;
@@ -86,14 +83,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no cadastro de projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no cadastro de projeto", 500, error));
     }
   },
-  async editarProjeto(request, response) {
+  async editarProjeto(request, response, next) {
     try {
       const {
         criador_id,
@@ -165,14 +158,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na edição de projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na edição de projeto", 500, error));
     }
   },
-  async obterProjeto(request, response) {
+  async obterProjeto(request, response, next) {
     try {
       const { id, projetoId } = request.params;
       const pId = projetoId || id;
@@ -388,14 +377,10 @@ module.exports = {
       });
 
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao obter detalhes do projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao obter detalhes do projeto", 500, error));
     }
   },
-  async apagarProjeto(request, response) {
+  async apagarProjeto(request, response, next) {
     try {
       const { id } = request.params;
 
@@ -417,11 +402,7 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao deletar projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao deletar projeto", 500, error));
     }
   },
 };

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
 
@@ -32,11 +33,7 @@ function verificarToken(request, response, next) {
     request.usuarioAutenticado = payload;
     return next();
   } catch (error) {
-    return response.status(401).json({
-      sucesso: false,
-      message: "Token inválido ou expirado",
-      dados: null,
-    });
+    return next(new AppError("Token inválido ou expirado", 401, error));
   }
 }
 
@@ -109,11 +106,7 @@ async function somenteDonoDoProjeto(request, response, next) {
 
     return next();
   } catch (error) {
-    return response.status(500).json({
-      sucesso: false,
-      message: "Erro na verificação de propriedade do projeto",
-      dados: error.message,
-    });
+    return next(new AppError("Erro na verificação de propriedade do projeto", 500, error));
   }
 }
 
@@ -174,11 +167,7 @@ async function somenteMembroOuDonoDoProjeto(request, response, next) {
 
     return next();
   } catch (error) {
-    return response.status(500).json({
-      sucesso: false,
-      message: "Erro na verificação de vínculo com o squad",
-      dados: error.message,
-    });
+    return next(new AppError("Erro na verificação de vínculo com o squad", 500, error));
   }
 }
 

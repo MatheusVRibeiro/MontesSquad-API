@@ -1,8 +1,9 @@
 const bcrypt = require("bcryptjs");
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarUsuarios(request, response) {
+  async listarUsuarios(request, response, next) {
     try {
 
       const sql = `
@@ -21,14 +22,10 @@ module.exports = {
         dados: row,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de usuários ",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de usuários", 500, error));
     }
   },
-  async cadastrarUsuario(request, response) {
+  async cadastrarUsuario(request, response, next) {
     try {
       const { nome, email, senha, bio, localizacao } = request.body;
 
@@ -65,14 +62,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no cadastro de usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no cadastro de usuário", 500, error));
     }
   },
-  async editarUsuario(request, response) {
+  async editarUsuario(request, response, next) {
     try {
       const { nome, email, bio, localizacao, senha } = request.body;
       const { id } = request.params;
@@ -124,14 +117,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na edição de usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na edição de usuário", 500, error));
     }
   },
-  async apagarUsuario(request, response) {
+  async apagarUsuario(request, response, next) {
     try {
       const { id } = request.params;
 
@@ -153,11 +142,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao deletar usuário",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao deletar usuário", 500, error));
     }
   },
 };
+

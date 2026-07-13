@@ -1,7 +1,8 @@
 const db = require("../database/connection");
+const AppError = require("../utils/errors");
 
 module.exports = {
-  async listarHabilidadesProjeto(request, response) {
+  async listarHabilidadesProjeto(request, response, next) {
     try {
 
       const sql = `
@@ -20,14 +21,10 @@ module.exports = {
         dados: row,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na listagem de habilidades do projeto ",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na listagem de habilidades do projeto", 500, error));
     }
   },
-  async cadastrarHabilidadesProjeto(request, response) {
+  async cadastrarHabilidadesProjeto(request, response, next) {
     try {
       const { projeto_id, habilidade_id } = request.body;
       
@@ -51,14 +48,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro no cadastro de habilidades do projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro no cadastro de habilidades do projeto", 500, error));
     }
   },
-  async editarHabilidadesProjeto(request, response) {
+  async editarHabilidadesProjeto(request, response, next) {
     try {
 
         const { projeto_id, habilidade_id } = request.body;
@@ -93,14 +86,10 @@ module.exports = {
         dados
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro na edição de habilidades do projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro na edição de habilidades do projeto", 500, error));
     }
   },
-  async apagarHabilidadesProjeto(request, response) {
+  async apagarHabilidadesProjeto(request, response, next) {
     try {
       const { id } = request.params;
 
@@ -122,11 +111,8 @@ module.exports = {
         dados: null,
       });
     } catch (error) {
-      return response.status(500).json({
-        sucesso: false,
-        message: "Erro ao deletar habilidades do projeto",
-        dados: error.message,
-      });
+      return next(new AppError("Erro ao deletar habilidades do projeto", 500, error));
     }
   },
 };
+
