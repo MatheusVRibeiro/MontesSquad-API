@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import request from "supertest";
 import { buildApp, criarPoolFake, tokenPara, setEnvAmbiente } from "./helpers/bootstrap.js";
+import { calcularScoreContribuicao, CONTRIBUTION_SCORE } from "../src/services/rankings.js";
 
 setEnvAmbiente();
 
@@ -76,5 +77,40 @@ describe("Rankings de committers (ETAPAS 11-12)", () => {
     const b = await request(app).get("/rankings/committers");
     expect(a.status).toBe(401);
     expect(b.status).toBe(401);
+  });
+});
+
+describe("Fórmula de contribuição (ETAPA 13)", () => {
+  it("cap de commits por task funciona (100 microcommits em 1 task → máx 20 pts)", () => {
+    const score = calcularScoreContribuicao({ commitCount: 100, tasksComCommit: 1 });
+    expect(score).toBe(CONTRIBUTION_SCORE.MAX_COMMIT_POINTS_PER_TASK);
+  });
+
+  it("3 commits úteis em 3 tasks → 3 pontos (sem cap)", () => {
+    const score = calcularScoreContribuicao({ commitCount: 3, tasksComCommit: 3 });
+    expect(score).toBe(3);
+  });
+
+  it("PR aberto pontua 10; PR mergeado pontua 30", () => {
+    const aberto = calcularScoreContribuicao({ prsAbertos: 1 });
+    const mergeado = calcularScoreContribuicao({ prsMergeados: 1 });
+    expect(aberto).toBe(CONTRIBUTION_SCORE.PR_OPENED);
+    expect(mergeado).toBe(CONTRIBUTION_SCORE.PR_MERGED);
+  });
+
+  it("task verificada por GitHub pontua 50 uma vez", () => {
+    const score = calcularScoreContribuicao({ tasksVerificadas: 1 });
+    expect(score).toBe(CONTRIBUTION_SCORE.VERIFIED_TASK);
+  });
+
+  it("score completo: merge pesa mais que microcommits", () => {
+    const micro = calcularScoreContribuicao({ commitCount: 100, tasksComCommit: 1 });
+    const entregador = calcularScoreContribuicao({ commitCount: 5, tasksComCommit: 5, prsMergeados: 2, tasksVerificadas: 2 });
+    expect(entregador).toBeGreaterThan(micro);
+    expect(entregador).toBe(5 + 2 * 30 + 2 * 50);
+  });
+
+  it("sem evidência → score 0", () => {
+    expect(calcularScoreContribuicao({})).toBe(0);
   });
 });

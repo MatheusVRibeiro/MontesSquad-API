@@ -147,4 +147,8 @@ const rankingsController = require("../controllers/rankings");
 router.get("/projetos/:projetoId/rankings/committers", verificarToken, somenteMembroOuDonoDoProjeto, rankingsController.committersPorProjeto);
 router.get("/rankings/committers", verificarToken, rankingsController.committersGeral);
 
+// Rankings de contribuição (ETAPAS 13-14)
+router.get("/projetos/:projetoId/rankings/contributors", verificarToken, somenteMembroOuDonoDoProjeto, rankingsController.contributorsPorProjeto);
+router.get("/rankings/contributors", verificarToken, rankingsController.contributorsGeral);
+
 module.exports = router;

@@ -42,4 +42,45 @@ async function committersGeral(request, response, next) {
   }
 }
 
-module.exports = { committersPorProjeto, committersGeral };
+/**
+ * GET /projetos/:projetoId/rankings/contributors — top contributors do projeto (ETAPA 13).
+ * Membro/dono. Ranking por score (qualidade), não volume de commits.
+ */
+async function contributorsPorProjeto(request, response, next) {
+  try {
+    const { projetoId } = request.params;
+    const limit = request.query.limit ? Number(request.query.limit) : 10;
+    const dados = await rankingsService.topContributorsPorProjeto(projetoId, limit);
+    return response.status(200).json({
+      sucesso: true,
+      message: "Top contributors do projeto",
+      nItens: dados.length,
+      dados,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * GET /rankings/contributors — top contributors global (ETAPA 14).
+ * ?limit&period=all|month
+ */
+async function contributorsGeral(request, response, next) {
+  try {
+    const limit = request.query.limit ? Number(request.query.limit) : 10;
+    const period = request.query.period === "month" ? "month" : "all";
+    const dados = await rankingsService.topContributorsGeral(limit, period);
+    return response.status(200).json({
+      sucesso: true,
+      message: "Top contributors global",
+      nItens: dados.length,
+      period,
+      dados,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { committersPorProjeto, committersGeral, contributorsPorProjeto, contributorsGeral };
