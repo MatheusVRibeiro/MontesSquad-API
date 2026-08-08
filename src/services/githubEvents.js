@@ -1,6 +1,8 @@
-// Processador de eventos GitHub (ETAPA 8 — push/commits; ETAPA 9 adiciona pull_request)
+// Processador de eventos GitHub (ETAPA 8 — push/commits; ETAPA 9 — pull_request)
 // Recebe eventos já validados (assinatura + idempotência) pelo controller.
 const githubTasks = require("./githubTasks");
+const { criarNotificacao } = require("../controllers/notificacoes");
+const db = require("../database/connection");
 
 /**
  * Processa o evento push: registra commits de branches conhecidas.
@@ -57,6 +59,96 @@ async function processarPush(payload, context = {}) {
 }
 
 /**
+ * Processa o evento pull_request (ETAPA 9).
+ * opened/reopened → review; synchronize → mantém review; closed sem merge → doing;
+ * closed com merged=true → done (transacional, idempotente, XP na ETAPA 10).
+ */
+async function processarPullRequest(payload, context = {}) {
+  const { deliveryId } = context;
+  const action = payload?.action ?? null;
+  const pr = payload?.pull_request ?? {};
+  const repositoryId = payload?.repository?.id ?? null;
+  const branch = pr?.head?.ref ?? null;
+
+  if (!repositoryId || !branch || !pr?.number) {
+    return { processado: false, motivo: "pr_sem_dados", deliveryId };
+  }
+
+  // Localiza a task pela branch do PR
+  const task = await githubTasks.encontrarTaskPorBranch({ repositoryId, branch });
+  if (!task) {
+    return { processado: true, motivo: "pr_branch_desconhecida", deliveryId, branch };
+  }
+
+  const prId = pr.id;
+  const prNumber = pr.number;
+  const prUrl = pr.html_url || null;
+  const mergedAt = pr.merged_at || null;
+
+  if (action === "opened" || action === "reopened") {
+    await githubTasks.upsertarPR({
+      repositoryId, prId, prNumber, prUrl, branch,
+      estado: "open", mergedAt: null,
+    });
+    await githubTasks.atualizarTaskPorPR({
+      taskId: task.id, prId, prNumber, prUrl, status: "open",
+    });
+    return { processado: true, motivo: "pr_aberto", deliveryId, taskId: task.id, prNumber };
+  }
+
+  if (action === "synchronize") {
+    await githubTasks.upsertarPR({
+      repositoryId, prId, prNumber, prUrl, branch,
+      estado: "open", mergedAt: null,
+    });
+    await githubTasks.atualizarAtividadeTask(task.id);
+    return { processado: true, motivo: "pr_sincronizado", deliveryId, taskId: task.id, prNumber };
+  }
+
+  if (action === "closed") {
+    if (pr.merged === true) {
+      // MERGE → conclui a task (transacional + idempotente)
+      const resultado = await githubTasks.concluirTaskPorMerge({
+        taskId: task.id, prId, prNumber, prUrl, mergedAt,
+      });
+      if (resultado.concluida) {
+        // Notificação (ETAPA 9; XP entra na ETAPA 10)
+        try {
+          await criarNotificacao(db, {
+            usuario_id: task.responsavel_id,
+            tipo: "task",
+            titulo: "Tarefa concluída via GitHub",
+            descricao: `PR #${prNumber} foi mergeado — tarefa concluída`,
+            link: `/projetos/${task.projeto_id}`,
+          });
+        } catch {
+          // notificação não deve derrubar o processamento
+        }
+      }
+      return {
+        processado: true,
+        motivo: resultado.jaConcluida ? "pr_merge_ja_concluido" : "pr_merge_concluiu",
+        deliveryId, taskId: task.id, prNumber,
+      };
+    }
+
+    // closed sem merge → review volta para doing (MVP)
+    await githubTasks.upsertarPR({
+      repositoryId, prId, prNumber, prUrl, branch,
+      estado: "closed", mergedAt: null,
+    });
+    await db.query(
+      `UPDATE tarefas SET github_pr_status = 'closed', status = 'doing', github_last_activity_at = NOW()
+       WHERE id = ?`,
+      [task.id]
+    );
+    return { processado: true, motivo: "pr_closed_sem_merge", deliveryId, taskId: task.id, prNumber };
+  }
+
+  return { processado: true, motivo: "pr_acao_ignorada", deliveryId, action };
+}
+
+/**
  * Roteia o evento para o processador específico.
  */
 async function processGitHubEvent(eventName, payload, context = {}) {
@@ -64,11 +156,10 @@ async function processGitHubEvent(eventName, payload, context = {}) {
     return processarPush(payload, context);
   }
   if (eventName === "pull_request") {
-    // ETAPA 9 implementa; por ora aceito sem efeitos
-    return { processado: true, motivo: "pull_request_pendente_etapa9", deliveryId: context.deliveryId };
+    return processarPullRequest(payload, context);
   }
   // ping e outros eventos: aceitos sem efeitos
   return { processado: true, motivo: "evento_sem_acao", deliveryId: context.deliveryId };
 }
 
-module.exports = { processGitHubEvent, processarPush };
+module.exports = { processGitHubEvent, processarPush, processarPullRequest };

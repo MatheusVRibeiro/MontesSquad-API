@@ -61,4 +61,83 @@ async function atualizarAtividadeTask(taskId, conn) {
   );
 }
 
-module.exports = { encontrarTaskPorBranch, salvarCommit, atualizarAtividadeTask: atualizarAtividadeTask };
+/**
+ * Upsert do Pull Request em github_pull_requests (ETAPA 9).
+ * INSERT ... ON DUPLICATE KEY UPDATE (unique repository_id + pr_number).
+ */
+async function upsertPullRequest({ repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt, conn }) {
+  const executor = conn || db;
+  await executor.query(
+    `INSERT INTO github_pull_requests
+      (repository_id, pr_id, pr_number, pr_url, branch, estado, merged_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       pr_id = VALUES(pr_id),
+       pr_url = VALUES(pr_url),
+       branch = VALUES(branch),
+       estado = VALUES(estado),
+       merged_at = VALUES(merged_at)`,
+    [repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt || null]
+  );
+}
+
+/**
+ * Atualiza a task quando um PR abre/reabre/sincroniza (ETAPA 9).
+ * opened/reopened → status review; synchronize mantém review.
+ */
+async function atualizarTaskPorPR({ taskId, prId, prNumber, prUrl, status, conn }) {
+  const executor = conn || db;
+  await executor.query(
+    `UPDATE tarefas SET
+       github_pr_id = ?, github_pr_number = ?, github_pr_url = ?,
+       github_pr_status = ?, status = 'review', github_last_activity_at = NOW()
+     WHERE id = ?`,
+    [prId, prNumber, prUrl, status, taskId]
+  );
+}
+
+/**
+ * Conclui a task por merge de PR (ETAPA 9) — transacional e idempotente.
+ * Retorna { concluida: true } se concluiu agora; { concluida: false, jaConcluida: true }
+ * se já estava concluída pelo mesmo PR.
+ */
+async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, conn }) {
+  const executor = conn || db;
+  const [rows] = await executor.query(
+    `SELECT id, status, completion_source, github_pr_id
+     FROM tarefas WHERE id = ? LIMIT 1`,
+    [taskId]
+  );
+  if (rows.length === 0) return { concluida: false, inexistente: true };
+
+  const task = rows[0];
+  // Idempotência: já concluída pelo MESMO PR → sem efeitos
+  if (task.status === "done" && task.completion_source === "github_merge" && task.github_pr_id === prId) {
+    return { concluida: false, jaConcluida: true };
+  }
+
+  await executor.query(
+    `UPDATE tarefas SET
+       github_pr_id = ?, github_pr_number = ?, github_pr_url = ?,
+       github_pr_status = 'merged', status = 'done',
+       completion_source = 'github_merge', completed_at = ?,
+       github_last_activity_at = NOW()
+     WHERE id = ?`,
+    [prId, prNumber, prUrl, mergedAt || new Date(), taskId]
+  );
+
+  return { concluida: true };
+}
+
+function getDb() {
+  return db;
+}
+
+module.exports = {
+  encontrarTaskPorBranch,
+  salvarCommit,
+  atualizarAtividadeTask,
+  upsertarPR: upsertPullRequest,
+  atualizarTaskPorPR,
+  concluirTaskPorMerge,
+};
