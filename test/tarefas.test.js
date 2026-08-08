@@ -19,6 +19,11 @@ const pool = criarPoolFake([
     resposta: () => [{ insertId: 55, affectedRows: 1 }, []],
   },
   {
+    // ETAPA 7: SELECT github_repository_id do projeto (após criar tarefa)
+    match: (sql) => /^select github_repository_id from projetos where id = \? limit 1$/.test(sql),
+    resposta: () => [[{ github_repository_id: null }], []],
+  },
+  {
     // criarNotificacao — INSERT (tipo task)
     match: (sql) => /^insert into notificacoes \(usuario_id, tipo, titulo, descricao, link\) values \(\?, \?, \?, \?, \?\)$/.test(sql),
     resposta: () => [{ insertId: 7, affectedRows: 1 }, []],

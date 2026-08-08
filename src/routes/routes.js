@@ -117,6 +117,8 @@ router.post("/projetos/:projetoId/tarefas", verificarToken, somenteMembroOuDonoD
 router.patch("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.atualizarTarefa);
 // Somente o dono do projeto deleta tarefas
 router.delete("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteDonoDoProjeto, tarefasController.apagarTarefa);
+// Membro/dono assume task livre (ETAPA 7)
+router.post("/projetos/:projetoId/tarefas/:tarefaId/assumir", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.assumirTarefa);
 
 // ROTAS GITHUB (integração GitHub-Kanban)
 // Webhook público: autenticação por assinatura HMAC (NÃO usa verificarToken)

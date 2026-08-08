@@ -77,6 +77,23 @@ module.exports = {
       ];
 
       const [result] = await db.query(sql, values);
+      const novaTarefaId = result.insertId;
+
+      // ETAPA 7: se o projeto tem GitHub conectado, gera branch sugerida já na criação
+      // (independentemente de responsável — o ID já existe).
+      let githubBranch = null;
+      const [projRows] = await db.query(
+        "SELECT github_repository_id FROM projetos WHERE id = ? LIMIT 1",
+        [projetoId]
+      );
+      if (projRows[0]?.github_repository_id) {
+        const { gerarBranchTask } = require("../utils/slugify");
+        githubBranch = gerarBranchTask(novaTarefaId, titulo);
+        await db.query(
+          "UPDATE tarefas SET github_branch = ? WHERE id = ? AND projeto_id = ?",
+          [githubBranch, novaTarefaId, projetoId]
+        );
+      }
 
       // Notifica o responsável quando a tarefa é atribuída
       if (responsavel_id) {
@@ -93,7 +110,7 @@ module.exports = {
         sucesso: true,
         message: "Tarefa criada com sucesso",
         dados: {
-          id: result.insertId,
+          id: novaTarefaId,
           projeto_id: projetoId,
           responsavel_id,
           titulo,
@@ -101,6 +118,7 @@ module.exports = {
           status: "todo",
           prioridade: prioridade || "medium",
           data_vencimento,
+          github_branch: githubBranch,
           subtasks: [],
         },
       });
@@ -217,6 +235,83 @@ module.exports = {
       });
     } catch (error) {
       return next(new AppError("Erro ao excluir tarefa", 500, error));
+    }
+  },
+
+  /**
+   * POST /projetos/:projetoId/tarefas/:tarefaId/assumir — membro assume task livre (ETAPA 7).
+   * Atômico: UPDATE com `responsavel_id IS NULL` — só um usuário vence a corrida.
+   * Se projeto tem GitHub conectado, gera a branch task/{id}-{slug}.
+   */
+  async assumirTarefa(request, response, next) {
+    const { gerarBranchTask } = require("../utils/slugify");
+    try {
+      const { projetoId, tarefaId } = request.params;
+      const usuarioLogadoId = request.usuarioAutenticado.id;
+
+      const [result] = await db.query(
+        `UPDATE tarefas
+         SET responsavel_id = ?, status = 'doing', assumida_em = NOW()
+         WHERE id = ? AND projeto_id = ? AND responsavel_id IS NULL`,
+        [usuarioLogadoId, tarefaId, projetoId]
+      );
+
+      if (result.affectedRows === 0) {
+        // Consulta para distinguir 404 de 409
+        const [rows] = await db.query(
+          "SELECT id, responsavel_id FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+          [tarefaId, projetoId]
+        );
+        if (rows.length === 0) {
+          return response.status(404).json({
+            sucesso: false,
+            message: "Tarefa não encontrada",
+            dados: null,
+          });
+        }
+        return response.status(409).json({
+          sucesso: false,
+          message: "Tarefa já possui responsável",
+          dados: null,
+        });
+      }
+
+      // Gera branch se o projeto estiver conectado ao GitHub
+      const [projRows] = await db.query(
+        "SELECT github_repository_id FROM projetos WHERE id = ? LIMIT 1",
+        [projetoId]
+      );
+      let githubBranch = null;
+      if (projRows[0]?.github_repository_id) {
+        const [taskRows] = await db.query(
+          "SELECT id, titulo FROM tarefas WHERE id = ? LIMIT 1",
+          [tarefaId]
+        );
+        if (taskRows[0]) {
+          githubBranch = gerarBranchTask(taskRows[0].id, taskRows[0].titulo);
+          await db.query(
+            "UPDATE tarefas SET github_branch = ? WHERE id = ? AND projeto_id = ?",
+            [githubBranch, tarefaId, projetoId]
+          );
+        }
+      }
+
+      const [task] = await db.query(
+        `SELECT t.id, t.titulo, t.status, t.github_branch, t.assumida_em,
+                u.nome AS responsavel_nome
+         FROM tarefas t
+         LEFT JOIN usuarios u ON t.responsavel_id = u.id
+         WHERE t.id = ? AND t.projeto_id = ?`,
+        [tarefaId, projetoId]
+      );
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Tarefa assumida com sucesso",
+        dados: task[0] || { id: tarefaId, status: "doing", github_branch: githubBranch },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao assumir tarefa", 500, error));
     }
   },
 };
