@@ -211,10 +211,10 @@ async function taskCommits(request, response, next) {
     }
 
     const [commits] = await db.query(
-      `SELECT sha, mensagem, autor, login, email, url, commit_em, branch
+      `SELECT sha, message, author_name, author_login, author_email, commit_url, committed_at, branch
        FROM github_commits
        WHERE repository_id = ? AND branch = ?
-       ORDER BY commit_em DESC
+       ORDER BY committed_at DESC
        LIMIT 50`,
       [repositoryId, branch]
     );
@@ -226,12 +226,12 @@ async function taskCommits(request, response, next) {
       dados: commits.map((c) => ({
         sha: c.sha,
         sha_curto: String(c.sha).slice(0, 7),
-        mensagem: c.mensagem,
-        autor: c.autor,
-        login: c.login,
-        email: c.email,
-        url: c.url,
-        commit_em: c.commit_em,
+        mensagem: c.message,
+        autor: c.author_name,
+        login: c.author_login,
+        email: c.author_email,
+        url: c.commit_url,
+        commit_em: c.committed_at,
         branch: c.branch,
       })),
     });

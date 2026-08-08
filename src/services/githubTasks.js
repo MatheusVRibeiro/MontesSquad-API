@@ -39,15 +39,16 @@ async function encontrarTaskPorBranch({ repositoryId, branch }) {
 
 /**
  * Registra um commit (INSERT IGNORE na unique key repository_id + sha).
+ * Schema real: tarefa_id/projeto_id NOT NULL + message + author_login/name/email + commit_url + committed_at.
  * Retorna true se inseriu, false se já existia.
  */
-async function salvarCommit({ repositoryId, sha, mensagem, autor, login, email, url, horario, branch, conn }) {
+async function salvarCommit({ tarefaId, projetoId, repositoryId, sha, mensagem, autor, login, email, url, horario, branch, conn }) {
   const executor = conn || db;
   const [result] = await executor.query(
     `INSERT IGNORE INTO github_commits
-      (repository_id, sha, mensagem, autor, login, email, url, commit_em, branch)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [repositoryId, sha, mensagem, autor, login || null, email || null, url || null, horario, branch || null]
+      (tarefa_id, projeto_id, repository_id, sha, message, author_login, author_name, author_email, branch, commit_url, committed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tarefaId, projetoId, repositoryId, sha, mensagem, login || null, autor || null, email || null, branch || null, url || null, horario || null]
   );
   return result.affectedRows > 0;
 }

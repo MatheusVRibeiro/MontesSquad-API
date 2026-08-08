@@ -142,4 +142,9 @@ router.delete("/github/disconnect", verificarToken, githubController.disconnect)
 router.get("/projetos/:projetoId/tarefas/:tarefaId/github", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskGithubStatus);
 router.get("/projetos/:projetoId/tarefas/:tarefaId/commits", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskCommits);
 
+// Rankings de commits (ETAPAS 11-12)
+const rankingsController = require("../controllers/rankings");
+router.get("/projetos/:projetoId/rankings/committers", verificarToken, somenteMembroOuDonoDoProjeto, rankingsController.committersPorProjeto);
+router.get("/rankings/committers", verificarToken, rankingsController.committersGeral);
+
 module.exports = router;

@@ -32,6 +32,8 @@ async function processarPush(payload, context = {}) {
   for (const c of commits) {
     if (!c || !c.id) continue;
     const inserido = await githubTasks.salvarCommit({
+      tarefaId: task.id,
+      projetoId: task.projeto_id,
       repositoryId,
       sha: c.id,
       mensagem: c.message || "",
