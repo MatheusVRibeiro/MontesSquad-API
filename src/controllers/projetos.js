@@ -273,12 +273,14 @@ module.exports = {
           role: "Owner",
           skills: []
         },
-        ...memberRows.map(m => ({
-          id: String(m.id),
-          name: m.nome,
-          role: m.role,
-          skills: []
-        }))
+        ...memberRows
+          .filter(m => Number(m.id) !== Number(projeto.criador_id))
+          .map(m => ({
+            id: String(m.id),
+            name: m.nome,
+            role: m.role,
+            skills: []
+          }))
       ];
 
       // Popula habilidades para cada membro do squad
