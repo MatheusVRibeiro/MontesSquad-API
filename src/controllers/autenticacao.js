@@ -165,7 +165,7 @@ module.exports = {
 
       const usuario = rows[0];
       const token = gerarTokenReset(usuario);
-      const resetUrl = process.env.RESET_PASSWORD_URL || `http://localhost:3000/resetar?token=${token}`;
+      const resetUrl = process.env.RESET_PASSWORD_URL || `http://localhost:5173/resetar-senha?token=${token}`;
       const transporter = criarTransporter();
 
       if (!transporter) {
