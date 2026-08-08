@@ -703,3 +703,91 @@ O detalhamento do projeto (seção 3) passa a incluir o array **`vagas`** em `da
 }
 ```
 Vagas com `status = 'fechada'` ou já totalmente preenchidas (`preenchidas >= quantidade`) também aparecem no array — o frontend decide como exibi-las.
+
+---
+
+### 22. Evolução ETAPA 5 — Candidatura direcionada por vaga/função
+
+A ETAPA 5 conecta as candidaturas (seção 5) às vagas por função criadas na ETAPA 4 (seção 21). A candidatura deixa de ser genérica e passa a ser **direcionada**: o candidato informa a `vaga_id` da função à qual deseja se candidatar. Ao aprovar uma candidatura vinculada a vaga, o backend incrementa `preenchidas` da vaga e a fecha automaticamente quando ela lota.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa5.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Coluna **`candidaturas.vaga_id`** | `INT NULL` — vaga pretendida. `NULL` = candidatura genérica (sem vaga), comportamento anterior mantido. |
+| FK `vaga_id` | → `vagas_projeto(id)` `ON DELETE SET NULL` — se a vaga for removida, a candidatura permanece e `vaga_id` volta a `NULL`. |
+
+**Regras de negócio:**
+- `vaga_id` é **opcional** no POST — candidatura sem vaga continua aceita;
+- quando `vaga_id` é informada, a vaga **deve pertencer ao projeto** e estar **aberta** (`status = 'aberta'` e `preenchidas < quantidade`) — caso contrário, **400**;
+- **candidatura duplicada** (mesmo usuário + mesma vaga no mesmo projeto) → **409**;
+- usuário não pode se candidatar ao **próprio projeto** → **400**;
+- usuário **já membro** do projeto não pode se candidatar novamente → **400**;
+- ao **aprovar** uma candidatura com `vaga_id`, o backend incrementa `vagas_projeto.preenchidas`; se `preenchidas >= quantidade`, a vaga é fechada (`status = 'fechada'`) automaticamente;
+- as validações existentes permanecem: limite de membros do projeto (`limite_membros`) verificado no aceite.
+
+#### `POST /projetos/:projetoId/candidaturas` (Requer Token)
+Candidata-se ao projeto, opcionalmente direcionado a uma vaga/função específica.
+- **Request Body:**
+  ```json
+  {
+    "vaga_id": 12,
+    "mensagem": "Quero contribuir no backend"
+  }
+  ```
+  (`vaga_id` é opcional — omita para candidatura genérica.)
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Candidatura enviada com sucesso",
+    "dados": {
+      "id": 45,
+      "usuario_id": 3,
+      "projeto_id": 10,
+      "vaga_id": 12,
+      "status": "pendente",
+      "mensagem": "Quero contribuir no backend"
+    }
+  }
+  ```
+- **Erros:** 400 (`vaga_id` não pertence ao projeto ou vaga fechada/lotada; candidatura ao próprio projeto; usuário já membro), 404 (projeto inexistente), **409** (candidatura duplicada para a mesma vaga).
+
+#### `GET /projetos/:projetoId/candidaturas` (Somente dono)
+Lista as candidaturas pendentes do projeto. A resposta **agora inclui `vaga_id` e `funcao_nome`** (LEFT JOIN `vagas_projeto` → `funcoes`); candidaturas sem vaga retornam `vaga_id: null` e `funcao_nome: null`.
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Candidaturas pendentes",
+    "nItens": 1,
+    "dados": [
+      {
+        "id": 45,
+        "usuario_id": 3,
+        "usuario_nome": "João Silva",
+        "usuario_bio": "Desenvolvedor Backend Node.js",
+        "vaga_id": 12,
+        "funcao_nome": "Backend",
+        "status": "pendente",
+        "mensagem": "Quero contribuir no backend",
+        "criado_em": "2026-08-08T12:00:00.000Z"
+      }
+    ]
+  }
+  ```
+- **Erros:** 403 (não é dono do projeto), 404 (projeto inexistente).
+
+#### `PATCH /projetos/:projetoId/candidaturas/:candidaturaId` (Somente dono)
+Aprova ou rejeita uma candidatura (`status`: `aceito` | `rejeitado`). Ao **aprovar** uma candidatura com `vaga_id`:
+- incrementa `vagas_projeto.preenchidas`;
+- se `preenchidas >= quantidade`, muda a vaga para `status = 'fechada'` automaticamente;
+- insere o candidato em `membros_equipe` (as validações existentes de limite de membros continuam valendo).
+- **Request Body:**
+  ```json
+  {
+    "status": "aceito"
+  }
+  ```
+- **Response (200 OK):** `{ "sucesso": true, "message": "Candidatura aprovada com sucesso", "dados": { "id": 45, "status": "aceito" } }` (ou `"Candidatura recusada com sucesso"` / `"rejeitado"` para rejeição).
+- **Erros:** 400 (status inválido, candidatura já processada, limite de membros atingido), 403 (não é dono do projeto), 404 (candidatura inexistente no projeto).
