@@ -18,12 +18,22 @@ module.exports = {
           p.figma_url,
           p.discord_url,
           p.documentacao_url,
-          (SELECT COUNT(*) FROM membros_equipe WHERE projeto_id = p.id) AS total_membros
+          (SELECT COUNT(*) FROM membros_equipe WHERE projeto_id = p.id) AS total_membros,
+          (
+            SELECT GROUP_CONCAT(h.nome SEPARATOR '||')
+            FROM habilidades_projeto hp
+            JOIN habilidades h ON hp.habilidade_id = h.id
+            WHERE hp.projeto_id = p.id
+          ) AS tecnologias
         FROM projetos p
         LEFT JOIN usuarios u ON p.criador_id = u.id
       `;
 
-      const [row] = await db.query(sql);
+      const [rows] = await db.query(sql);
+      const row = rows.map((r) => ({
+        ...r,
+        tecnologias: r.tecnologias ? String(r.tecnologias).split("||") : [],
+      }));
       const nItens = row.length;
 
       return response.status(200).json({

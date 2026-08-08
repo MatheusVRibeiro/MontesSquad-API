@@ -110,8 +110,8 @@ router.delete("/projetos/:projetoId/membros/:usuarioId", verificarToken, somente
 // ROTAS KANBAN TAREFAS
 // Somente dono ou membros do squad podem ver tarefas
 router.get("/projetos/:projetoId/tarefas", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.listarTarefas);
-// Somente o dono do projeto adiciona/atribui tarefas
-router.post("/projetos/:projetoId/tarefas", verificarToken, somenteDonoDoProjeto, tarefasController.criarTarefa);
+// Dono ou membros do squad podem adicionar/atribuir tarefas
+router.post("/projetos/:projetoId/tarefas", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.criarTarefa);
 // Dono ou membro podem atualizar tarefas (ex: mover colunas, marcar checklist)
 router.patch("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.atualizarTarefa);
 // Somente o dono do projeto deleta tarefas
