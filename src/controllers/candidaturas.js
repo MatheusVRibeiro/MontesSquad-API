@@ -31,9 +31,9 @@ module.exports = {
         });
       }
 
-      // Usuário já membro do squad não pode se candidatar novamente (ETAPA 5)
+      // Usuário já membro ATIVO do squad não pode se candidatar novamente (ETAPA 5/6)
       const [membroRows] = await db.query(
-        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
+        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? AND status = 'ativo'",
         [projetoId, usuarioId]
       );
       if (membroRows.length > 0) {
@@ -212,7 +212,7 @@ module.exports = {
             [projetoId]
           );
           const [membrosRows] = await db.query(
-            "SELECT COUNT(*) as total FROM membros_equipe WHERE projeto_id = ?",
+            "SELECT COUNT(*) as total FROM membros_equipe WHERE projeto_id = ? AND status = 'ativo'",
             [projetoId]
           );
 
@@ -240,16 +240,40 @@ module.exports = {
 
         // Se aceito, insere na equipe do squad
         if (status === "aceito") {
-          // Verifica se já está na equipe
+          // Verifica se já está na equipe (como membro ATIVO)
           const [membRows] = await connection.query(
-            "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
+            "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? AND status = 'ativo'",
             [projetoId, candidatura.usuario_id]
           );
 
           if (membRows.length === 0) {
+            // ETAPA 6 — função do membro: vaga_id vem da candidatura e funcao_id
+            // preferencialmente da vaga (JOIN vagas_projeto.funcao_id); o nome
+            // textual `funcao` é preenchido com o nome da função da vaga.
+            let funcaoIdVaga = null;
+            let funcaoNomeVaga = null;
+            if (candidatura.vaga_id) {
+              const [vagaInfo] = await connection.query(
+                "SELECT v.funcao_id, f.nome AS funcao_nome FROM vagas_projeto v " +
+                  "LEFT JOIN funcoes f ON v.funcao_id = f.id WHERE v.id = ? LIMIT 1",
+                [candidatura.vaga_id]
+              );
+              if (vagaInfo.length > 0) {
+                funcaoIdVaga = vagaInfo[0].funcao_id;
+                funcaoNomeVaga = vagaInfo[0].funcao_nome;
+              }
+            }
+
             await connection.query(
-              "INSERT INTO membros_equipe (usuario_id, projeto_id, funcao) VALUES (?, ?, ?)",
-              [candidatura.usuario_id, projetoId, "Membro"]
+              "INSERT INTO membros_equipe (usuario_id, projeto_id, vaga_id, funcao_id, funcao, status) " +
+                "VALUES (?, ?, ?, ?, ?, 'ativo')",
+              [
+                candidatura.usuario_id,
+                projetoId,
+                candidatura.vaga_id || null,
+                funcaoIdVaga,
+                funcaoNomeVaga || "Membro",
+              ]
             );
 
             // ETAPA 5 — candidatura por vaga: incrementa a ocupação da vaga

@@ -29,9 +29,9 @@ const pool = criarPoolFake([
     resposta: () => [[{ id: 1, author: "Fernanda", projectName: "Squad X", nota: 5, comentario: "Ótimo trabalho", criado_em: "2026-01-10T00:00:00.000Z" }], []],
   },
   {
-    // 6. Histórico de projetos (membros_equipe)
-    match: (sql) => /^select p\.id as projeto_id, p\.titulo, p\.status, p\.criador_id, me\.funcao, me\.entrou_em from membros_equipe me join projetos p on p\.id = me\.projeto_id where me\.usuario_id = \? order by me\.entrou_em desc$/.test(sql),
-    resposta: () => [[{ projeto_id: 10, titulo: "Squad X", status: "em_andamento", criador_id: 2, funcao: "Membro", entrou_em: "2026-01-05T00:00:00.000Z" }], []],
+    // 6. Histórico de projetos (membros_equipe) — ETAPA 6: expõe membro_status
+    match: (sql) => /^select p\.id as projeto_id, p\.titulo, p\.status, p\.criador_id, me\.funcao, me\.entrou_em, me\.status as membro_status from membros_equipe me join projetos p on p\.id = me\.projeto_id where me\.usuario_id = \? order by me\.entrou_em desc$/.test(sql),
+    resposta: () => [[{ projeto_id: 10, titulo: "Squad X", status: "em_andamento", criador_id: 2, funcao: "Membro", entrou_em: "2026-01-05T00:00:00.000Z", membro_status: "ativo" }], []],
   },
 ]);
 

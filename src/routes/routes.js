@@ -123,6 +123,8 @@ router.patch("/projetos/:projetoId/candidaturas/:candidaturaId", verificarToken,
 router.get("/projetos/:projetoId/membros", verificarToken, membrosController.listarMembros);
 // Somente o dono do projeto remove membros do squad
 router.delete("/projetos/:projetoId/membros/:usuarioId", verificarToken, somenteDonoDoProjeto, membrosController.removerMembro);
+// Membro autenticado sai do projeto (soft-delete status='saiu' — owner bloqueado no controller)
+router.post("/projetos/:projetoId/sair", verificarToken, membrosController.sairDoProjeto);
 
 // ROTAS VAGAS DO PROJETO (Evolução ETAPA 4 — papéis/vagas necessárias)
 // Membro/dono consultam as vagas; somente o owner cria, edita ou apaga

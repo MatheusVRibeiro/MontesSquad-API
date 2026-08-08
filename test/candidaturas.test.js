@@ -14,8 +14,8 @@ const pool = criarPoolFake([
     resposta: () => [[], []],
   },
   {
-    // ETAPA 5 — SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? (já membro)
-    match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \?$/.test(sql),
+    // ETAPA 5/6 — SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? AND status = 'ativo' (já membro ativo)
+    match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo'$/.test(sql),
     resposta: () => [[], []],
   },
   {

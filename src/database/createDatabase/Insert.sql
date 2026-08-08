@@ -67,12 +67,12 @@ INSERT INTO candidaturas (usuario_id, projeto_id, vaga_id, status, mensagem) VAL
 (4, 2, 3, 'aceito', 'Tenho disponibilidade para configurar as pipelines de CI/CD.'),
 (1, 3, 4, 'rejeitado', 'Foco em backend Node se precisarem.');
 
--- 7. Inserir Membros nas Equipes
-INSERT INTO membros_equipe (usuario_id, projeto_id, funcao) VALUES 
-(1, 1, 'Líder Técnico'),
-(3, 1, 'Dev Frontend'),
-(2, 2, 'Engenheira de Dados'),
-(4, 2, 'DevOps');
+-- 7. Inserir Membros nas Equipes (Evolução ETAPA 6 — vaga_id/funcao_id/status/saiu_em)
+INSERT INTO membros_equipe (usuario_id, projeto_id, funcao, vaga_id, funcao_id, status) VALUES
+(1, 1, 'Líder Técnico', NULL, NULL, 'ativo'),
+(3, 1, 'Dev Frontend', NULL, NULL, 'ativo'),
+(2, 2, 'Engenheira de Dados', NULL, NULL, 'ativo'),
+(4, 2, 'DevOps', NULL, NULL, 'ativo');
 
 -- 8. Inserir Avaliações
 INSERT INTO avaliacoes (avaliador_id, avaliado_id, projeto_id, nota, comentario) VALUES 

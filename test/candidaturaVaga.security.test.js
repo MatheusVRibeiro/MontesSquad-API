@@ -79,15 +79,20 @@ function criarPoolCandidaturas({
       match: (sql) => /^select \* from candidaturas where id = \? and projeto_id = \? limit 1$/.test(sql),
       resposta: () => [[{ id: 7, usuario_id: 2, projeto_id: 1, vaga_id: VAGA_ID, status: "pendente", mensagem: "oi" }], []],
     },
-    // PATCH — contagem atual de membros (limite de membros)
+    // PATCH — contagem atual de membros ATIVOS (limite de membros)
     {
-      match: (sql) => /^select count\(\*\) as total from membros_equipe where projeto_id = \?$/.test(sql),
+      match: (sql) => /^select count\(\*\) as total from membros_equipe where projeto_id = \? and status = 'ativo'$/.test(sql),
       resposta: () => [[{ total: totalMembros }], []],
     },
-    // PATCH — SELECT de vínculo na equipe (dentro da transação)
+    // PATCH — SELECT de vínculo na equipe (dentro da transação, apenas ATIVO)
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \?$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo'$/.test(sql),
       resposta: () => [[], []],
+    },
+    // PATCH — ETAPA 6: função da vaga ao inserir o membro (JOIN funcoes)
+    {
+      match: (sql) => /^select v\.funcao_id, f\.nome as funcao_nome from vagas_projeto v left join funcoes f on v\.funcao_id = f\.id where v\.id = \? limit 1$/.test(sql),
+      resposta: () => [[{ funcao_id: 1, funcao_nome: "Backend" }], []],
     },
     // POST — INSERT da candidatura
     {

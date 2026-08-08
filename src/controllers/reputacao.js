@@ -92,9 +92,10 @@ module.exports = {
         createdAt: r.criado_em,
       }));
 
-      // 6. Histórico de projetos (equipes que participou) — formato do frontend
+      // 6. Histórico de projetos (equipes que participou) — formato do frontend.
+      //    ETAPA 6: expõe o status do vínculo (ativo/saiu/removido) — soft-delete preserva o histórico.
       const [history] = await db.query(
-        `SELECT p.id AS projeto_id, p.titulo, p.status, p.criador_id, me.funcao, me.entrou_em
+        `SELECT p.id AS projeto_id, p.titulo, p.status, p.criador_id, me.funcao, me.entrou_em, me.status AS membro_status
          FROM membros_equipe me
          JOIN projetos p ON p.id = me.projeto_id
          WHERE me.usuario_id = ?
@@ -113,6 +114,7 @@ module.exports = {
         projectName: h.titulo,
         role: h.criador_id === usuarioId ? "Owner" : "Membro",
         status: statusMap[h.status] || h.status,
+        memberStatus: h.membro_status || "ativo",
         period: h.entrou_em,
         technologies: [],
       }));

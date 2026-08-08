@@ -40,9 +40,9 @@ function criarPoolCandidaturaVaga({
       match: (sql) => /^select id, criador_id from projetos where id = \?$/.test(sql),
       resposta: () => [[{ id: 1, criador_id: criadorProjeto }], []],
     },
-    // POST — SELECT de membro da equipe (já membro não pode se candidatar)
+    // POST — SELECT de membro da equipe (já membro ATIVO não pode se candidatar)
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \?$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo'$/.test(sql),
       resposta: () => (membro ? [[{ id: 9 }], []] : [[], []]),
     },
     // POST — SELECT de candidatura duplicada (pendente → 409; aceito → já membro 400)
@@ -68,9 +68,9 @@ function criarPoolCandidaturaVaga({
       match: (sql) => /^select \* from candidaturas where id = \? and projeto_id = \? limit 1$/.test(sql),
       resposta: () => [[{ id: 55, usuario_id: 2, projeto_id: 1, vaga_id: 10, status: "pendente", mensagem: "Quero entrar" }], []],
     },
-    // PATCH — contagem atual de membros (limite de membros)
+    // PATCH — contagem atual de membros ATIVOS (limite de membros)
     {
-      match: (sql) => /^select count\(\*\) as total from membros_equipe where projeto_id = \?$/.test(sql),
+      match: (sql) => /^select count\(\*\) as total from membros_equipe where projeto_id = \? and status = 'ativo'$/.test(sql),
       resposta: () => [[{ total: 0 }], []],
     },
     // PATCH — UPDATE do status da candidatura (transação)
@@ -78,9 +78,14 @@ function criarPoolCandidaturaVaga({
       match: (sql) => /^update candidaturas set status = \? where id = \?$/.test(sql),
       resposta: () => [{ affectedRows: 1 }, []],
     },
-    // PATCH — INSERT do novo membro na equipe (transação)
+    // PATCH — ETAPA 6: função da vaga (JOIN vagas_projeto.funcao_id → funcoes.nome)
     {
-      match: (sql) => /^insert into membros_equipe \(usuario_id, projeto_id, funcao\) values \(\?, \?, \?\)$/.test(sql),
+      match: (sql) => /^select v\.funcao_id, f\.nome as funcao_nome from vagas_projeto v left join funcoes f on v\.funcao_id = f\.id where v\.id = \? limit 1$/.test(sql),
+      resposta: () => [[{ funcao_id: 1, funcao_nome: "Backend" }], []],
+    },
+    // PATCH — INSERT do novo membro na equipe com vaga/função (transação, ETAPA 6)
+    {
+      match: (sql) => /^insert into membros_equipe \(usuario_id, projeto_id, vaga_id, funcao_id, funcao, status\) values \(\?, \?, \?, \?, \?, 'ativo'\)$/.test(sql),
       resposta: () => [{ insertId: 7, affectedRows: 1 }, []],
     },
     // PATCH — ETAPA 5: incrementa ocupação da vaga ao aprovar

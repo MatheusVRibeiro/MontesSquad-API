@@ -117,9 +117,15 @@ CREATE TABLE membros_equipe (
     usuario_id INT,
     projeto_id INT,
     funcao VARCHAR(100),
+    vaga_id INT NULL,
+    funcao_id INT NULL,
+    status ENUM('ativo', 'saiu', 'removido') DEFAULT 'ativo',
+    saiu_em DATETIME NULL,
     entrou_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE
+    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
+    FOREIGN KEY (vaga_id) REFERENCES vagas_projeto(id) ON DELETE SET NULL,
+    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- 8. Avaliações (Reviews)

@@ -791,3 +791,93 @@ Aprova ou rejeita uma candidatura (`status`: `aceito` | `rejeitado`). Ao **aprov
   ```
 - **Response (200 OK):** `{ "sucesso": true, "message": "Candidatura aprovada com sucesso", "dados": { "id": 45, "status": "aceito" } }` (ou `"Candidatura recusada com sucesso"` / `"rejeitado"` para rejeição).
 - **Erros:** 400 (status inválido, candidatura já processada, limite de membros atingido), 403 (não é dono do projeto), 404 (candidatura inexistente no projeto).
+
+---
+
+### 23. Evolução ETAPA 6 — Função do membro dentro do projeto (soft-delete e saída)
+
+A ETAPA 6 registra o **papel real de cada membro** do squad. `membros_equipe` passa a guardar a vaga ocupada (`vaga_id`), a função real (`funcao_id` — vinda preferencialmente da vaga) e um **status de ciclo de vida** (`ativo` | `saiu` | `removido`) com `saiu_em`, preservando o histórico: ninguém é apagado fisicamente do projeto ao sair ou ser removido (**soft-delete**). A aprovação de candidatura (seção 22) agora cria o membro já vinculado à vaga/função da candidatura, e o endpoint de remoção de membro deixa de apagar o registro.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa6.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Coluna **`membros_equipe.vaga_id`** | `INT NULL` — vaga ocupada pelo membro. `NULL` = sem vaga vinculada (ex.: owner). |
+| FK `vaga_id` | → `vagas_projeto(id)` `ON DELETE SET NULL` — se a vaga for removida, o membro permanece e `vaga_id` volta a `NULL`. |
+| Coluna **`membros_equipe.funcao_id`** | `INT NULL` — função real do membro no projeto, vinda preferencialmente da vaga no aceite da candidatura. |
+| FK `funcao_id` | → `funcoes(id)` `ON DELETE SET NULL`. |
+| Coluna **`membros_equipe.status`** | `ENUM('ativo','saiu','removido') DEFAULT 'ativo'` — soft-state: `ativo` (atualmente no squad), `saiu` (saiu voluntariamente via `POST /sair`), `removido` (removido pelo dono). |
+| Coluna **`membros_equipe.saiu_em`** | `DATETIME NULL` — data/hora em que o membro saiu ou foi removido. `NULL` enquanto `status = 'ativo'`. |
+
+**Regras de negócio:**
+- **soft-delete:** sair ou ser removido **nunca apaga** o registro de `membros_equipe` — apenas atualiza `status` e `saiu_em`, preservando o histórico do membro no projeto;
+- apenas membros com `status = 'ativo'` aparecem na listagem, contam para `preenchidas` das vagas e para o `limite_membros`;
+- ao sair/remover um membro com `vaga_id` preenchida, o backend **decrementa** `vagas_projeto.preenchidas` e **reabre** a vaga (`status = 'aberta'`) se ela estava fechada por lotação;
+- **owner não sai nem é removido:** `POST /projetos/:projetoId/sair` como owner → **400**; `DELETE /projetos/:projetoId/membros/:usuarioId` do owner → **400**;
+- aprovação de candidatura cria/atualiza o membro com `vaga_id` e `funcao_id` da vaga; candidatura sem vaga → `vaga_id`/`funcao_id` `NULL`;
+- o owner continua com papel Owner, sem `vaga_id`/`funcao_id` vinculados.
+
+#### `GET /projetos/:projetoId/membros` (Membro/dono)
+Lista os **membros ativos** do projeto (`status = 'ativo'`), com a função real (JOIN `funcoes`) e a vaga ocupada (JOIN `vagas_projeto`). Membros que saíram (`saiu`) ou foram removidos (`removido`) **não aparecem** na listagem — o histórico permanece apenas no banco.
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Membros carregados com sucesso",
+    "nItens": 2,
+    "dados": [
+      {
+        "id": 1,
+        "usuario_id": 1,
+        "usuario_nome": "João Silva",
+        "role": "Owner",
+        "vaga_id": null,
+        "funcao_id": null,
+        "funcao_nome": null,
+        "status": "ativo",
+        "saiu_em": null
+      },
+      {
+        "id": 7,
+        "usuario_id": 3,
+        "usuario_nome": "Maria Souza",
+        "role": "membro",
+        "vaga_id": 12,
+        "funcao_id": 1,
+        "funcao_nome": "Backend",
+        "status": "ativo",
+        "saiu_em": null
+      }
+    ]
+  }
+  ```
+- **Erros:** 403 (usuário não é membro/dono do projeto), 404 (projeto inexistente).
+
+#### `DELETE /projetos/:projetoId/membros/:usuarioId` (Somente dono)
+Remove um membro do projeto — agora **soft-delete**: o registro é atualizado para `status = 'removido'` e `saiu_em = NOW()` (nada é apagado do banco). Se o membro ocupava uma vaga (`vaga_id` preenchida), a vaga é **liberada**: `preenchidas` é decrementada e, se estava fechada por lotação, volta para `status = 'aberta'`.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Membro removido do projeto", "dados": null }`.
+- **Erros:** 400 (tentativa de remover o **owner**; usuário não é membro ativo), 403 (não é dono do projeto), 404 (projeto ou membro inexistente).
+
+#### `POST /projetos/:projetoId/sair` (Membro)
+O membro autenticado **sai voluntariamente** do projeto: `status = 'saiu'` e `saiu_em = NOW()`. Assim como na remoção, a vaga ocupada é liberada (decremento de `preenchidas` + reabertura se necessário). Sem Request Body.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Você saiu do projeto", "dados": null }`.
+- **Erros:** **400** (o **owner não pode sair** — deve transferir o projeto ou encerrá-lo), 403 (usuário não é membro do projeto), 404 (projeto inexistente).
+
+#### `PATCH /projetos/:projetoId/candidaturas/:candidaturaId` (Somente dono) — aprovação cria membro com função da vaga
+Ao **aprovar** uma candidatura (seção 22), o backend agora **insere o membro em `membros_equipe` já vinculado à vaga/função**:
+- `vaga_id` = `candidaturas.vaga_id` (vaga pretendida);
+- `funcao_id` = `vagas_projeto.funcao_id` (função da vaga — "a função vem preferencialmente da vaga");
+- `status = 'ativo'` e `saiu_em = NULL`;
+- candidatura **sem** vaga (`vaga_id` nulo): membro criado com `vaga_id = NULL` e `funcao_id = NULL` (comportamento anterior, sem vínculo);
+- as demais regras do aceite permanecem: incremento de `preenchidas`, fechamento automático da vaga quando lota e validação do `limite_membros`.
+
+**Estrutura do registro criado em `membros_equipe`:**
+
+| Campo | Origem |
+|---|---|
+| `projeto_id` | projeto da candidatura |
+| `usuario_id` | candidato aprovado |
+| `vaga_id` | `candidaturas.vaga_id` |
+| `funcao_id` | `vagas_projeto.funcao_id` (função da vaga) |
+| `status` | `'ativo'` |
+| `saiu_em` | `NULL` |
