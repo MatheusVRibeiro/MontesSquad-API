@@ -80,6 +80,13 @@ module.exports = {
 
       const [result] = await db.query(sql, values);
 
+      // Vincula o criador como membro da equipe (dono precisa ter vínculo no squad
+      // para acessar mural/kanban na UI — sem isso o frontend trata como visitante)
+      await db.query(
+        "INSERT INTO membros_equipe (projeto_id, usuario_id) VALUES (?, ?)",
+        [result.insertId, criador_id]
+      );
+
       const dados = {
         id: result.insertId,
         criador_id,
