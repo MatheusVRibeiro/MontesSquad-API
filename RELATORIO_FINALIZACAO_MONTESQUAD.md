@@ -175,7 +175,7 @@
 - ✅ 2.D — Disparos: candidatura → dono (`application`); aprovação `status === "aceito"` → candidato (`approved`, fora da tx); mensagem → demais membros (`message`); tarefa com `responsavel_id` → responsável (`task`).
 - ✅ 2.E — Rotas registradas com `verificarToken` (sem token → 401, validado).
 - **Validação executada:** `node -c` (7 arquivos OK) · smoke do skill (0 falhas) · E2E com banco REAL (servidor spawnado porta 3999): login admin → 200, `GET /notificacoes` → 200 + shape `{sucesso, message, dados, nItens}`, `POST /ler-tudo` → 200, `GET /usuarios/5/reputacao` → 200 + dados, sem token → 401 — **8/8 ✅**.
-- Commit: `c9e591e` (push main).
+- Commit: `8a051f3` (push main).
 
 ---
 
