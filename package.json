@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:setup": "node scripts/migrar_fase01.js && node scripts/migrar_fase02.js"
   },
   "keywords": [
     "Node JS",
@@ -27,6 +29,8 @@
     "nodemailer": "^8.0.8"
   },
   "devDependencies": {
-    "nodemon": "3.1.9"
+    "nodemon": "3.1.9",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.10"
   }
 }

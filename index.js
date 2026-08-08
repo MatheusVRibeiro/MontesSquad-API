@@ -17,6 +17,7 @@ if (process.env.JWT_SECRET === 'coloque-um-segredo-forte-aqui' && process.env.NO
 }
 
 const router = require('./src/routes/routes');
+const db = require('./src/database/connection');
 
 const app = express(); 
 
@@ -43,6 +44,18 @@ app.use(express.json());
 
 app.use(router);
 
+// 3.5 Healthcheck público: verifica a conectividade com o banco (SELECT 1).
+//     Nunca derruba o boot — em falha responde { sucesso: true, banco: 'erro' }.
+app.get('/health', async (request, response) => {
+  try {
+    await db.query('SELECT 1');
+    return response.status(200).json({ sucesso: true, banco: 'ok' });
+  } catch (error) {
+    console.error('[health] Banco de dados indisponível:', error.message);
+    return response.status(200).json({ sucesso: true, banco: 'erro' });
+  }
+});
+
 // 3. Middleware global de tratamento de erros
 app.use((err, req, res, next) => {
     const status = err.status || 500;
@@ -63,14 +76,20 @@ app.use((err, req, res, next) => {
     });
 });
 
-const porta = process.env.PORT || 3333;
+// Só inicia o servidor quando executado diretamente (node index.js).
+// Quando importado (ex.: testes com supertest), o app é exportado sem escutar porta.
+if (require.main === module) {
+    const porta = process.env.PORT || 3333;
 
-app.listen(porta, () => {
-    console.log(`Servidor iniciado em http://localhost:${porta}`);
-});
+    app.listen(porta, () => {
+        console.log(`Servidor iniciado em http://localhost:${porta}`);
+    });
+}
 
 app.get('/', (request, response) => {
     response.send('Hello World');
 });
+
+module.exports = app;
 
 
