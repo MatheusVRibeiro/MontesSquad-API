@@ -12,6 +12,7 @@ CREATE TABLE usuarios (
     github_avatar_url VARCHAR(500) NULL,
     github_connected_at DATETIME NULL,
     cadastro_origem ENUM('local','github') DEFAULT 'local' NOT NULL,
+    senha_definida TINYINT(1) DEFAULT 0 NOT NULL,
     tipo ENUM('membro', 'adm') DEFAULT 'membro' NOT NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_usuarios_github_user_id (github_user_id)

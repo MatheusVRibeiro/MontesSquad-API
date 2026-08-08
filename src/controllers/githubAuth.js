@@ -107,6 +107,8 @@ async function callbackAuthGitHub(request, response, next) {
     }
 
     // 3. Novo usuário → registro parcial (senha aleatória, cadastro_origem=github)
+    // senha_definida=0: a senha aleatória NÃO é utilizável — o usuário precisa
+    // definir senha local (complete-profile) antes de poder desconectar o GitHub.
     const senhaAleatoria = crypto.randomBytes(24).toString("hex");
     const senhaHash = await bcrypt.hash(senhaAleatoria, 10);
     const nome = gh.name || gh.login || "Usuário GitHub";
@@ -114,8 +116,8 @@ async function callbackAuthGitHub(request, response, next) {
 
     const [insertResult] = await db.query(
       `INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url,
-         github_user_id, github_login, github_avatar_url, github_connected_at, cadastro_origem)
-       VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, NOW(), 'github')`,
+         github_user_id, github_login, github_avatar_url, github_connected_at, cadastro_origem, senha_definida)
+       VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, NOW(), 'github', 0)`,
       [nome, email, senhaHash, gh.avatar_url || null, gh.id, gh.login || null, gh.avatar_url || null]
     );
 
@@ -147,6 +149,8 @@ async function completarPerfilGitHub(request, response, next) {
     if (senha !== undefined && String(senha).length >= 6) {
       const hash = await bcrypt.hash(String(senha), 10);
       fields.push("senha = ?"); values.push(hash);
+      // Senha local definida → permite desconectar o GitHub (ETAPA 2)
+      fields.push("senha_definida = 1");
     }
 
     if (fields.length > 0) {

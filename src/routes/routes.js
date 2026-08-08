@@ -141,6 +141,9 @@ router.get("/github/installations/:installationId/repositories", verificarToken,
 // Identidade GitHub do usuário (ETAPA 6) — OAuth com state anti-CSRF
 router.get("/github/me", verificarToken, githubController.me);
 router.get("/github/connect", verificarToken, githubController.connect);
+// Vínculo pós-login (ETAPA 2): alias de /github/connect — o retorno do OAuth é
+// sempre /github/callback (redirect_uri registrada no GitHub App)
+router.get("/github/callback-link", verificarToken, githubController.callbackLink);
 router.get("/github/callback", githubController.callback); // público (GitHub redireciona)
 router.delete("/github/disconnect", verificarToken, githubController.disconnect);
 

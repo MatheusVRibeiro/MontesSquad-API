@@ -409,3 +409,77 @@ Top contributors global. `?limit` (padrão 10, máx. 50) e `?period=all|month`.
 | `pull_request` | `synchronize` | Mantém a tarefa em **`review`** (novos pushes no PR); só atualiza a atividade. |
 | `pull_request` | `closed` (sem merge) | Tarefa volta para **`doing`** (PR fechado sem merge). |
 | `pull_request` | `closed` (merged) | Tarefa concluída: **`done`** + `completion_source='github_merge'` + `completed_at=merged_at`, transacional e **idempotente** (delivery repetido ou merge já registrado → sem efeitos). Concede **+150 XP** (`XP_GITHUB_MERGE`) via `eventos_xp` (chave `task:{id}:github-merge:pr:{n}` — idempotente; falha de XP nunca derruba o merge) + notificação com `(+150 XP)` quando concedido. |
+
+---
+
+### 19. Evolução ETAPA 2 — Vínculo GitHub pela conta (Configurações > Integrações)
+
+Desde a **ETAPA 1** o usuário pode entrar no MontesSquad com o GitHub (`GET /auth/github` → `GET /auth/github/callback`). A **ETAPA 2** complementa esse fluxo para **dentro do sistema**: quem criou conta localmente pode **vincular** o GitHub à conta atual, e quem entrou pelo GitHub pode **gerenciar/desconectar** o vínculo — desde que mantenha um método de login alternativo (senha local).
+
+Para isso foi adicionada a coluna **`usuarios.senha_definida`** (detalhes ao final desta seção), que indica se a conta possui uma senha local utilizável. A regra central é: **conta criada via GitHub (`cadastro_origem='github'`) sem senha local (`senha_definida=0`) NÃO pode desconectar o GitHub** — primeiro é preciso definir uma senha (via `POST /auth/github/complete-profile` ou `PATCH /usuarios/:id`), evitando uma conta sem nenhum método de login.
+
+#### `GET /github/me` (Requer Token)
+Retorna o estado da conta GitHub do usuário autenticado. **Novo na ETAPA 2:** além dos campos já documentados na seção 13, a resposta passa a incluir `senha_definida` e `cadastro_origem`, usados pelo frontend (`GitHubConnectionCard`) para exibir o vínculo e liberar/bloquear a opção "Desconectar".
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Conta GitHub conectada",
+    "dados": {
+      "conectado": true,
+      "github_user_id": 123456,
+      "github_login": "joaosilva",
+      "github_avatar_url": "https://avatars.githubusercontent.com/u/123456?v=4",
+      "github_connected_at": "2026-08-08T12:00:00.000Z",
+      "senha_definida": false,
+      "cadastro_origem": "github"
+    }
+  }
+  ```
+
+#### `GET /github/connect` (Requer Token)
+Gera a URL de autorização OAuth do GitHub para **vincular o GitHub à conta atual** (usuário já autenticado no MontesSquad) — fluxo distinto do cadastro/login da ETAPA 1 (`GET /auth/github`). Inclui `state` anti-CSRF (JWT curto, 10 min).
+- **Response (200 OK):** `dados: { url, state }` — `url` aponta para `https://github.com/login/oauth/authorize` com `scope=read:user`.
+
+#### `GET /github/callback-link` (Requer Token)
+**Alias de `GET /github/connect`** (mesma resposta `{ url, state }`): é a rota prevista no plano para o vínculo pós-login — usuário autenticado clica em "Conectar" e recebe a URL de autorização OAuth do GitHub com `state` anti-CSRF carregando o `uid` da conta atual. O retorno do OAuth **sempre** acontece em `GET /github/callback` (a `redirect_uri` registrada no GitHub App — não há rota separada de retorno; o `state` valida que o vínculo vai para a conta que iniciou o fluxo).
+- **Erros:** 400 (`code`/`state` ausentes), 401 (`state` inválido ou expirado), **409** (GitHub ID já vinculado a outra conta MontesSquad), 502 (falha ao obter usuário do GitHub).
+
+#### `DELETE /github/disconnect` (Requer Token)
+Remove o vínculo da conta GitHub do usuário. **O histórico de commits já registrado é preservado.**
+- **Regra ETAPA 2 (evita conta sem método de login):** se `cadastro_origem='github'` **e** `senha_definida=0`, retorna **409**:
+  ```json
+  {
+    "sucesso": false,
+    "message": "Crie uma senha local antes de desconectar o GitHub",
+    "dados": null
+  }
+  ```
+- **Response (200 OK)** quando o vínculo é removido (conta local, ou conta GitHub que já definiu senha): `{ "sucesso": true, "message": "Conta GitHub desconectada (histórico preservado)", "dados": null }`.
+
+#### `POST /auth/github/complete-profile` (Requer Token)
+Completa o perfil do usuário que entrou com GitHub (ETAPA 1). **Novo na ETAPA 2:** quando o body inclui `senha` (mín. 6 caracteres), o backend também marca **`senha_definida = 1`** — a partir desse momento o usuário pode desconectar o GitHub (o `DELETE /github/disconnect` deixa de retornar 409).
+- **Request Body:**
+  ```json
+  {
+    "nome": "João Silva",
+    "bio": "Desenvolvedor Backend",
+    "senha": "novaSenha123"
+  }
+  ```
+
+---
+
+### Coluna nova — `usuarios.senha_definida` (Evolução ETAPA 2)
+
+| Aspecto | Detalhe |
+|---|---|
+| Definição | `senha_definida TINYINT(1) DEFAULT 0 NOT NULL` |
+| Cadastro local (`POST /usuarios`) | Gravada como `1` (senha definida no cadastro) |
+| Cadastro via GitHub (`GET /auth/github/callback`) | Gravada como `0` (senha interna aleatória, não utilizável) |
+| `POST /auth/github/complete-profile` com `senha` | Atualizada para `1` |
+| `PATCH /usuarios/:id` com `senha` | Atualizada para `1` |
+| Recuperação/reset de senha (`/recuperar-senha`, `/resetar-senha`) | Atualizada para `1` |
+| Backfill (migração `scripts/migrar_evolucao_etapa2.js`) | Contas com `cadastro_origem='local'` → `1`; contas `github` permanecem `0` |
+
+**Efeito no fluxo:** com `senha_definida=1` a conta sempre terá a senha local como método de login alternativo, liberando a desconexão do GitHub. A migração é aditiva e idempotente (consulta `INFORMATION_SCHEMA` antes de criar a coluna).

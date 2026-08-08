@@ -29,7 +29,8 @@ async function me(request, response, next) {
   try {
     const usuarioLogadoId = request.usuarioAutenticado.id;
     const [rows] = await db.query(
-      `SELECT github_user_id, github_login, github_avatar_url, github_connected_at
+      `SELECT github_user_id, github_login, github_avatar_url, github_connected_at,
+              senha_definida, cadastro_origem
        FROM usuarios WHERE id = ? LIMIT 1`,
       [usuarioLogadoId]
     );
@@ -44,6 +45,9 @@ async function me(request, response, next) {
         github_login: u.github_login ?? null,
         github_avatar_url: u.github_avatar_url ?? null,
         github_connected_at: u.github_connected_at ?? null,
+        // ETAPA 2: permite o frontend saber se o usuário pode desconectar sem definir senha
+        senha_definida: !!u.senha_definida,
+        cadastro_origem: u.cadastro_origem ?? "local",
       },
     });
   } catch (error) {
@@ -71,6 +75,21 @@ async function connect(request, response, next) {
   }
 }
 
+/**
+ * GET /github/callback-link — ALIAS de GET /github/connect (ETAPA 2).
+ * O plano lista /github/callback-link como endpoint de vínculo pós-login
+ * (usuário autenticado clica Conectar → OAuth → volta e vincula à conta atual).
+ * DECISÃO: o mesmo fluxo de /github/connect+cobrir serve o vínculo — o state JWT
+ * carrega o usuário logado (uid) e o GitHub redireciona para /github/callback
+ * (redirect_uri registrada no App), que vincula à conta do state. Rota separada
+ * de retorno não é possível sem registrar novo redirect_uri no GitHub App, então
+ * /github/callback-link apenas inicia o mesmo OAuth, para o frontend usar a URL
+ * prevista no plano.
+ */
+async function callbackLink(request, response, next) {
+  return connect(request, response, next);
+}
+
 /** Troca o code do GitHub pelo token de acesso e busca o usuário. */
 async function trocarCodePorUsuarioGitHub(code) {
   const clientId = process.env.GITHUB_CLIENT_ID;
@@ -96,7 +115,13 @@ async function trocarCodePorUsuarioGitHub(code) {
   return userRes.json();
 }
 
-/** GET /github/callback — recebe code+state do GitHub e vincula a conta. */
+/**
+ * GET /github/callback — recebe code+state do GitHub e vincula a conta (ETAPA 2).
+ * Cobre TAMBÉM o retorno do "callback-link" pós-login: o state carrega o usuário
+ * logado (uid) e o fluxo redireciona para /configuracoes?github=connected — não há
+ * rota separada de retorno porque a redirect_uri registrada no GitHub App é
+ * /github/callback (GET /github/callback-link é alias de /github/connect).
+ */
 async function callback(request, response, next) {
   try {
     const { code, state } = request.query || {};
@@ -136,10 +161,31 @@ async function callback(request, response, next) {
   }
 }
 
-/** DELETE /github/disconnect — remove o vínculo (histórico de commits preservado). */
+/**
+ * DELETE /github/disconnect — remove o vínculo (histórico de commits preservado).
+ * Regra de negócio (ETAPA 2): conta criada via GitHub (cadastro_origem='github')
+ * que ainda não definiu senha local (senha_definida=0) NÃO pode desconectar —
+ * retorna 409 para forçar a definição de senha (complete-profile ou edição de
+ * perfil) antes, evitando conta sem método de login.
+ */
 async function disconnect(request, response, next) {
   try {
     const usuarioLogadoId = request.usuarioAutenticado.id;
+
+    const [rows] = await db.query(
+      `SELECT cadastro_origem, senha_definida FROM usuarios WHERE id = ? LIMIT 1`,
+      [usuarioLogadoId]
+    );
+    const u = rows[0];
+
+    if (u && u.cadastro_origem === "github" && !u.senha_definida) {
+      return response.status(409).json({
+        sucesso: false,
+        message: "Crie uma senha local antes de desconectar o GitHub",
+        dados: null,
+      });
+    }
+
     await db.query(
       `UPDATE usuarios SET github_user_id = NULL, github_login = NULL, github_avatar_url = NULL, github_connected_at = NULL
        WHERE id = ?`,
@@ -555,6 +601,7 @@ module.exports = {
   listarRepositoriesInstalacao,
   me,
   connect,
+  callbackLink,
   callback,
   disconnect,
   trocarCodePorUsuarioGitHub,

@@ -1,10 +1,10 @@
--- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10)
-INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url, tipo) VALUES 
-('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro'),
-('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro'),
-('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro'),
-('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro'),
-('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm');
+-- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10; senha_definida=1 pois são contas locais com senha utilizável)
+INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url, tipo, senha_definida) VALUES 
+('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro', 1),
+('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro', 1),
+('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro', 1),
+('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro', 1),
+('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm', 1);
 
 -- 2. Inserir Habilidades
 INSERT INTO habilidades (nome) VALUES 
