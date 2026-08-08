@@ -418,3 +418,48 @@ Todos os passos validados com dados REAIS da API (sem mocks):
 - [ ] Segurança: sem IDOR, rate limit ativo, senhas hasheadas, JWT sem fallback
 - [ ] `docs/api.md` + README atualizados
 - [ ] Commits PT-BR por fase, push autorizado
+
+---
+
+## INTEGRAÇÃO GITHUB-KANBAN (ETAPAS 1-17)
+
+> Especificação técnica executável: `docs/IMPLEMENTACAO_GITHUB_KANBAN.md` (ETAPAS 0-36).
+> Estado em 08/08/2026: **ETAPAS 1-17 CONCLUÍDAS** (commit + push por etapa, ~30 commits em `main`) · **ETAPA 18 (regressão E2E) EM ANDAMENTO** — `test/github.e2e.test.js` criado.
+
+### Resumo por etapa
+
+| Etapa | Entrega principal | Commits (backend / frontend) |
+|---|---|---|
+| **1** | Banco/migration GitHub — 4 tabelas novas (`github_commits`, `github_pull_requests`, `github_webhook_deliveries`, `eventos_xp`) + colunas `github_*` em usuarios/projetos/tarefas + ENUM `review` + chaves únicas de idempotência | `069ed55` |
+| **2** | Contrato `review` — backend (STATUS_VALIDOS 4 estados; obterProjeto devolve githubBranch/PR/status/atividade) + Kanban 4ª coluna "Em revisão" | `9b6fb89` / `6501db1` |
+| **3** | GitHub App service — `src/services/githubApp.js` (Octokit encapsulado: getGitHubApp/getInstallationClient/getRepositoryById/listInstallationRepositories) + `.env.example` GITHUB_* + 5 testes com Octokit fake | `6898b87` |
+| **4** | Webhook seguro e idempotente — `POST /github/webhook` com HMAC SHA-256 (timingSafeEqual), `express.raw()` antes do `express.json()`, deliveries com deduplicação (`isDeliveryDuplicate`) | `477069d` |
+| **5** | Repository no projeto — conectar/desconectar (`POST/GET/DELETE /projetos/:id/github/repository`); backend consulta o GitHub (nunca confia no full_name do browser); desconectar preserva tasks | `eb7e655` / `fea7e0b` |
+| **6** | Identidade GitHub do usuário — OAuth (`GET /github/connect` com state anti-CSRF JWT 10m) + callback (409 se já vinculado) + disconnect | `a17c11a` / `1743548` |
+| **7** | Assumir task + branch `task/{id}-{slug}` — `POST .../tarefas/:tarefaId/assumir` com UPDATE atômico (`responsavel_id IS NULL`; corrida → 404 vs 409) + `src/utils/slugify.js` | `4a38a3f` / `32f0a2b` |
+| **8** | Push/commits — `salvarCommit` com INSERT IGNORE (unique `repository_id+sha`), endpoints status/commits, badge no card + painel de atividade com polling 15s | `0b288f0` / `6173679` |
+| **9** | PR + automação Kanban — opened/reopened → `review`, synchronize mantém, closed sem merge → `doing`, merged → `done` transacional + notificação | `741ef5f` / `15c56fa` |
+| **10** | XP autoritativo no backend — `src/services/xp.js` idempotente (`eventos_xp` chave única; merge +150 XP, conclusão manual +100); navegador NÃO controla mais XP (`awardLocalXP` removido) | `a086fc8` / `1baa861` |
+| **11-12** | Top Committers projeto + global — `src/services/rankings.js` (JOIN `usuarios.github_user_id`, `?period=month`) + `TopCommitters.tsx` | `da4eb6c` / `ff169ea` |
+| **13-14** | Top Contributors — `CONTRIBUTION_SCORE` anti-gaming (cap MAX_COMMIT_POINTS_PER_TASK=20; commits/PRs/tasks verificadas) + `TopContributors.tsx` como ranking principal | `9570b48` / `35bfc93` |
+| **15** | Notificações de PR + timeline técnica — `GET .../tarefas/:tarefaId/timeline` (derivada das tabelas atuais, sem tabela nova) + bloco TimelineBlock | `616cf75` / `b6d042c` |
+| **16** | Segurança da superfície GitHub — testes negativos 401/403/404/409 (webhook sem assinatura → 401 MESMO com JWT; installation token/private key nunca em respostas) | `535b2e9` |
+| **17** | UI mobile 4 colunas (`md:grid-cols-4` + `overflow-x-auto`) + erro acionável (botão "Tentar novamente" nos rankings) | `aaf6f3a` |
+| **18** | Regressão/E2E — cenários A-D em `test/github.e2e.test.js` (B: fluxo completo conectar→merge→XP 1x; C: reenvio não duplica; D: concorrência ao assumir) | 🔄 **EM ANDAMENTO** |
+
+### Métricas (ETAPAS 1-17)
+
+- Backend: **testes 32 → 105** (Vitest + supertest, pool mockado; 105/105 verdes ao fim da ETAPA 16)
+- Frontend: **29/29 testes** · `npx tsc --noEmit` 0 erros · `npm run lint` 0 erros (7 warnings pré-existentes) · `npm run build` OK
+- **~30 commits** pushados em `main` (backend + frontend + docs) ao longo das ETAPAS 1-17 — commit + push por etapa
+
+### Fixes críticos descobertos
+
+- 🔴 **Schema de `github_commits` e `github_pull_requests` desalinhado vs `Tabelas.sql`**: INSERTs das ETAPAS 8/9/15 usavam colunas "traduzidas" sem conferir o schema real (`mensagem/autor/login/email/url/commit_em` e `pr_id/pr_number/pr_url/branch/merged_at`) — nomes reais são `tarefa_id/projeto_id NOT NULL, message, author_*, commit_url, committed_at` e `numero/url/estado/mergeado_em`; quebraria em produção com "Unknown column". **Corrigidos** para casar o schema exato (service + controller + testes). Regra: conferir colunas reais no `Tabelas.sql` (`grep -A N`) ANTES de escrever qualquer INSERT/SELECT em tabela criada por migration.
+- 🟠 **`NODE_ENV=production` exportado no terminal quebra 5 testes frontend**: depois de testar o preview PROD, a suíte Vitest falha em services não tocados (fallback DEV vs PROD throw — `import.meta.env.DEV` muda o caminho). NÃO é bug de código. Fix: `NODE_ENV=development` (ou `unset NODE_ENV`) antes de rodar `npm test` no squad-hub.
+
+### Pendências para produção real
+
+1. **Criar o GitHub App real** e preencher as envs no `.env` (não commitado): `GITHUB_APP_ID`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` (+ URLs de sucesso/erro do OAuth, ex: `GITHUB_FRONTEND_SUCCESS_URL`). Hoje os testes rodam com Octokit fake/mocks.
+2. **Teste ponta a ponta REAL** com o GitHub App instalado num repositório real (webhook push/pull_request → eventos reais → Kanban) — não feito ainda.
+3. **Fechar ETAPA 18**: revalidar o Cenário B (merge → `done` + XP 1x + rankings) com o fix do mock de UPDATE multi-coluna (`^update tarefas set github_pr_id = ?, github_pr_number = ?, github_pr_url = ?, github_pr_status = 'merged'`), commitar `feat: e2e regression GitHub-Kanban (ETAPA 18)` + push, e atualizar este relatório.
