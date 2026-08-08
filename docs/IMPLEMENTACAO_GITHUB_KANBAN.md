@@ -1,73 +1,61 @@
-# MontesSquad — Plano mestre de implementação da integração GitHub no Kanban
+# MontesSquad — Especificação técnica executável da integração GitHub no Kanban
 
-> Versão 2 — documento consolidado de arquitetura, produto, execução, testes e critérios de aceite.
-
----
-
-# 1. Objetivo geral
-
-Integrar o MontesSquad ao GitHub para que projetos colaborativos tenham evidências técnicas automáticas de execução, sem transformar o GitHub na fonte de verdade do gerenciamento do projeto.
-
-O MontesSquad continuará sendo responsável por:
-
-- projetos;
-- membros;
-- candidaturas;
-- tarefas;
-- responsáveis;
-- prioridade;
-- prazo;
-- Kanban;
-- reputação;
-- XP;
-- rankings;
-- regras de colaboração.
-
-O GitHub será fonte de evidência técnica para:
-
-- conta GitHub do usuário;
-- repositório;
-- branch;
-- commit;
-- SHA;
-- autoria GitHub;
-- Pull Request;
-- estado do PR;
-- merge;
-- futuramente checks de CI/CD.
-
-Princípio do produto:
-
-> **MontesSquad gerencia o trabalho; GitHub comprova a atividade técnica.**
-
-Regra central:
-
-> **Um commit nunca conclui automaticamente uma tarefa. O commit registra atividade. A conclusão automática ocorre quando o Pull Request relacionado é mergeado.**
+> Versão 3 — documento operacional. Este arquivo define **o que criar, o que alterar, em qual repositório, quais funções/endpoints/tabelas implementar, testes obrigatórios e gates de conclusão**.
 
 ---
 
-# 2. Repositórios e arquitetura atual analisada
+# 1. Objetivo
+
+Integrar o MontesSquad ao GitHub para que o sistema continue gerenciando projetos, squads e tarefas, enquanto o GitHub fornece evidências técnicas de execução.
+
+Fluxo final:
+
+```text
+Projeto criado no MontesSquad
+        ↓
+GitHub opcional: conectar agora ou depois
+        ↓
+Tasks criadas no MontesSquad
+        ↓
+Membro assume task
+        ↓
+Branch associada à task
+        ↓
+Push/commits → atividade registrada
+        ↓
+PR aberto → Em revisão
+        ↓
+PR mergeado → Concluído
+        ↓
+XP + métricas + ranking atualizados
+```
+
+Regra principal:
+
+> **Commit NÃO conclui tarefa. Commit registra atividade. A conclusão automática ocorre apenas quando o Pull Request relacionado é mergeado.**
+
+---
+
+# 2. Repositórios já analisados
 
 ## Frontend
-
-Repositório:
 
 ```text
 MatheusVRibeiro/squad-hub
 ```
 
-Stack identificada:
+Stack atual:
 
 - React 19;
 - TypeScript;
 - Vite;
-- TanStack Router/Query;
 - Axios;
+- TanStack Router/Query;
 - Tailwind;
 - Radix/shadcn;
 - Vitest.
 
-Arquivos importantes já existentes:
+Arquivos existentes diretamente envolvidos:
 
 ```text
 src/components/projects/KanbanBoard.tsx
@@ -75,23 +63,13 @@ src/services/projectDetail.ts
 src/services/api.ts
 ```
 
-O Kanban atual trabalha com:
-
-```ts
-"todo" | "doing" | "done"
-```
-
-Hoje o frontend também contém lógica para conceder XP ao mover um card para `done`. Essa responsabilidade deve deixar de ser autoritativa no navegador.
-
 ## Backend
-
-Repositório:
 
 ```text
 MatheusVRibeiro/MontesSquad-API
 ```
 
-Stack:
+Stack atual:
 
 - Node.js;
 - Express;
@@ -101,556 +79,439 @@ Stack:
 - Vitest;
 - Supertest.
 
-Arquivos principais:
+Arquivos existentes diretamente envolvidos:
 
 ```text
+index.js
+src/routes/routes.js
 src/controllers/tarefas.js
 src/controllers/projetos.js
+src/controllers/usuarios.js
 src/controllers/autenticacao.js
 src/controllers/reputacao.js
 src/controllers/notificacoes.js
-src/routes/routes.js
 src/middlewares/auth.js
 src/database/createDatabase/Tabelas.sql
 .env.example
+package.json
 ```
-
-A estrutura atual já possui `repositorio_url` em projetos e tarefas persistidas no MySQL. A implementação deve ser incremental e não reconstruir o sistema.
 
 ---
 
-# 3. REGRA ABSOLUTA DE EXECUÇÃO DO PLANO
-
-Esta seção é obrigatória para qualquer agente ou subagente que executar a implementação.
+# 3. REGRA ABSOLUTA DE EXECUÇÃO
 
 ## 3.1 Uma etapa por vez
 
-**NÃO iniciar a implementação da próxima etapa enquanto a etapa atual não estiver 100% concluída.**
+**É PROIBIDO implementar a próxima etapa enquanto a etapa atual não estiver completamente finalizada.**
 
-Uma etapa somente é considerada concluída quando:
-
-1. todos os arquivos planejados foram criados ou alterados;
-2. migrations daquela etapa estão prontas e testadas;
-3. testes automatizados relacionados passam;
-4. lint passa quando aplicável;
-5. não existem erros conhecidos bloqueantes;
-6. contratos frontend/backend estão coerentes;
-7. segurança da etapa foi revisada;
-8. critérios de aceite daquela etapa foram comprovados;
-9. alterações realizadas foram listadas;
-10. qualquer divergência do plano foi registrada e justificada.
-
-Se qualquer item falhar, a etapa continua **EM EXECUÇÃO**.
-
-## 3.2 Gate obrigatório
-
-Ao terminar cada etapa produzir internamente um checklist:
+Uma etapa só está concluída quando todos os itens aplicáveis estiverem finalizados:
 
 ```text
-ETAPA X — GATE DE CONCLUSÃO
-
-[ ] implementação concluída
-[ ] migration validada
-[ ] testes passando
+[ ] arquivos planejados criados
+[ ] arquivos planejados alterados
+[ ] migration concluída quando aplicável
+[ ] contratos backend/frontend coerentes
+[ ] testes unitários passando
+[ ] testes de integração passando
 [ ] lint passando
 [ ] regressões verificadas
 [ ] segurança revisada
-[ ] contratos revisados
-[ ] critérios de aceite comprovados
-[ ] arquivos alterados documentados
+[ ] critérios de aceite demonstrados
+[ ] arquivos alterados listados
 [ ] nenhuma pendência bloqueante
 ```
 
-Somente quando todos os itens aplicáveis estiverem marcados pode iniciar a próxima etapa.
+Se um único item obrigatório estiver faltando, a etapa permanece **EM EXECUÇÃO**.
 
-## 3.3 Uso de subagentes
+## 3.2 Uso de subagentes
 
-É permitido dividir uma etapa entre subagentes quando tarefas forem independentes.
+Subagentes podem executar partes independentes da **mesma etapa**.
 
 Exemplo:
 
 ```text
-Etapa atual: Webhook
+ETAPA 4 — Webhook
 
-Subagente A -> assinatura HMAC
-Subagente B -> idempotência de delivery
-Subagente C -> testes do webhook
+Subagente A → assinatura HMAC
+Subagente B → idempotência
+Subagente C → testes
 ```
 
-Porém:
+O agente principal deve integrar, revisar e testar tudo antes de fechar a etapa.
 
-- o agente principal continua responsável pela integração final;
-- a etapa não termina enquanto TODOS os trabalhos necessários não forem integrados e validados;
-- não iniciar implementação da etapa seguinte apenas porque um subagente terminou primeiro.
+## 3.3 Enquanto aguarda subagentes
 
-## 3.4 Trabalho permitido enquanto subagentes executam
+Se houver subagentes trabalhando na etapa atual, o agente principal pode **analisar** a próxima etapa para melhorar o andamento.
 
-Caso o agente principal esteja aguardando subagentes finalizarem tarefas da etapa atual, ele **pode analisar a próxima etapa**, exclusivamente para melhorar o andamento futuro.
+Pode:
 
-Durante essa espera é permitido:
-
-- ler os arquivos envolvidos na próxima etapa;
+- ler arquivos;
 - mapear dependências;
+- verificar contratos;
 - identificar riscos;
-- planejar distribuição entre subagentes;
-- escrever checklist de implementação;
-- antecipar contratos de API;
-- identificar testes necessários;
-- verificar possíveis conflitos;
-- preparar estratégia de execução.
+- decidir divisão futura;
+- preparar checklist;
+- planejar testes.
 
-Não é permitido:
+Não pode:
 
-- alterar arquivos da próxima etapa;
-- commitar implementação da próxima etapa;
-- executar migration da próxima etapa;
-- misturar mudanças de etapas diferentes no mesmo pacote de trabalho.
+- alterar arquivos da etapa seguinte;
+- criar código da etapa seguinte;
+- executar migration da etapa seguinte;
+- commitar implementação da etapa seguinte.
 
-Regra:
-
-> **Enquanto espera, pode planejar a próxima etapa. Não pode implementá-la antes de fechar completamente a atual.**
+> **Planejamento antecipado é permitido. Implementação antecipada é proibida.**
 
 ---
 
-# 4. Experiência de criação do projeto
+# 4. Experiência funcional desejada
 
-## 4.1 GitHub NÃO é obrigatório para criar projeto
+## 4.1 Criação de projeto sem GitHub obrigatório
 
-O usuário NÃO precisa possuir repositório GitHub antes de criar um projeto no MontesSquad.
+O usuário não precisa ter um repositório GitHub antes de criar um projeto.
 
-Fluxo recomendado:
-
-```text
-Criar projeto
-    ↓
-Definir tecnologias
-    ↓
-Definir quantidade de membros
-    ↓
-GitHub: conectar agora OU conectar depois
-    ↓
-Criar primeiras tarefas
-    ↓
-Publicar projeto
-    ↓
-Receber candidatos
-    ↓
-Montar squad
-    ↓
-Participantes assumem tarefas
-    ↓
-GitHub registra contribuições
-```
-
-Tela conceitual:
+Na criação do projeto:
 
 ```text
-NOVO PROJETO
-
 Nome
-Sistema Financeiro
-
 Descrição
-Sistema colaborativo para gestão financeira
-
 Tecnologias
-React, Node.js, MySQL
-
 Quantidade máxima de membros
-5
 
 Integração GitHub
-( ) Conectar agora
-( ) Conectar depois
+○ Conectar depois
+○ Conectar agora
 
 [ Criar projeto ]
 ```
 
-O valor padrão pode ser `Conectar depois` para reduzir fricção no onboarding.
+O padrão recomendado é `Conectar depois`.
 
-## 4.2 Projeto criado sem GitHub
+Projetos sem GitHub continuam funcionando normalmente.
 
-O sistema funciona normalmente:
+## 4.2 Conectar GitHub depois
 
-```text
-A fazer -> Em progresso -> Concluído
-```
-
-Todas as funcionalidades existentes permanecem disponíveis.
-
-Posteriormente o owner pode conectar GitHub.
-
-## 4.3 Aba GitHub dentro do projeto
-
-Adicionar navegação conceitual:
+Dentro do projeto adicionar área/aba GitHub:
 
 ```text
 Visão geral | Kanban | Membros | GitHub | Mural
 ```
 
-Projeto sem integração:
+Sem integração:
 
 ```text
-GitHub
-
-Este projeto ainda não possui um repositório conectado.
-Conecte um repositório para acompanhar commits e Pull Requests.
+Este projeto ainda não possui repositório conectado.
 
 [ Conectar GitHub ]
 ```
 
-Projeto integrado:
+Com integração:
 
 ```text
 GitHub conectado ✓
-
-Repositório
-matheus/sistema-financeiro
-
-Branch principal
-main
-
-Último evento
-há 3 minutos
+Repositório: usuario/repositorio
+Branch padrão: main
 ```
 
----
+## 4.3 Tasks continuam sendo criadas no MontesSquad
 
-# 5. Conectar repositório existente
-
-## Objetivo
-
-Permitir que owner conecte repositório depois da criação do projeto.
-
-Fluxo:
-
-1. owner abre aba GitHub;
-2. clica `Conectar GitHub`;
-3. instala/autoriza GitHub App;
-4. backend identifica installation;
-5. frontend lista repositórios permitidos;
-6. owner escolhe um repositório;
-7. backend valida repository ID com GitHub;
-8. sistema grava repository ID, full name, installation ID e default branch;
-9. projeto passa a exibir estado conectado.
-
-Nunca confiar apenas em URL enviada pelo frontend.
-
----
-
-# 6. Criar repositório pelo MontesSquad — evolução posterior
-
-Não é requisito do primeiro MVP.
-
-Evolução futura:
-
-```text
-Como deseja configurar o GitHub?
-
-[ Usar repositório existente ]
-[ Criar novo repositório ]
-```
-
-Caso seja implementado futuramente:
-
-```text
-Nome
-sistema-financeiro
-
-Visibilidade
-Público / Privado
-
-Descrição
-Projeto criado pelo MontesSquad
-
-[ Criar repositório ]
-```
-
-Essa funcionalidade exigirá permissão GitHub maior e deve ser adicionada somente depois do fluxo read-only/webhook estar estável.
-
----
-
-# 7. Conta GitHub do usuário
-
-Cada usuário MontesSquad poderá conectar sua própria identidade GitHub.
-
-Persistir:
-
-```text
-github_user_id
-github_login
-github_avatar_url
-github_connected_at
-```
-
-O identificador principal deve ser `github_user_id`, não username.
-
-Exemplo:
-
-```text
-MontesSquad: João Silva
-GitHub: @joaosilva
-GitHub ID: 12345678
-```
-
-Isso permite relacionar commits e PRs a usuários do sistema.
-
----
-
-# 8. Criação das tarefas
-
-As tasks são criadas **no MontesSquad**, não no GitHub.
-
-Exemplo:
+A task deve possuir:
 
 ```text
 Título
-Criar API de Login
-
 Descrição
-Criar POST /login com JWT
-
 Prioridade
-Alta
-
-Responsável
-Opcional
-
 Prazo
-15/08/2026
+Responsável opcional
 ```
 
-O backend cria primeiro a tarefa e obtém seu ID.
+Não criar task automaticamente como GitHub Issue no MVP.
 
-Exemplo:
+## 4.4 Task assumível
+
+Task sem responsável deve mostrar:
 
 ```text
-Task ID = 38
+Sem responsável
+[ Assumir tarefa ]
 ```
 
-Somente depois pode gerar branch sugerida:
+Ao assumir:
+
+- definir usuário autenticado como responsável;
+- se estiver `todo`, mover para `doing`;
+- operação deve ser atômica;
+- se já houver responsável, retornar conflito HTTP 409;
+- se projeto possuir GitHub, preparar branch sugerida.
+
+## 4.5 Branch da task
+
+Após o banco gerar o ID da task, gerar:
+
+```text
+task/{taskId}-{slug}
+```
+
+Exemplo:
 
 ```text
 task/38-criar-api-de-login
 ```
 
-Padrão:
+No MVP, o sistema gera e salva o nome; o desenvolvedor cria a branch localmente.
 
-```text
-task/{taskId}-{slug-do-titulo}
+Exibir comandos:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b task/38-criar-api-de-login
+git push -u origin task/38-criar-api-de-login
 ```
 
 ---
 
-# 9. Tarefas assumíveis
+# 5. Mapa completo de arquivos
+
+## 5.1 Backend — arquivos NOVOS
+
+Criar:
+
+```text
+src/controllers/github.js
+src/controllers/rankings.js
+src/services/githubApp.js
+src/services/githubWebhook.js
+src/services/githubEvents.js
+src/services/githubTasks.js
+src/services/xp.js
+src/services/rankings.js
+scripts/migrar_github_integracao.js
+test/github.webhook.test.js
+test/github.push.test.js
+test/github.pullRequest.test.js
+test/github.tasks.test.js
+test/github.rankings.test.js
+```
+
+Opcional, se ficar mais organizado sem contrariar o padrão atual:
+
+```text
+src/utils/githubSignature.js
+src/utils/slugify.js
+```
+
+## 5.2 Backend — arquivos EXISTENTES a alterar
+
+```text
+index.js
+package.json
+.env.example
+src/routes/routes.js
+src/controllers/tarefas.js
+src/controllers/projetos.js
+src/controllers/usuarios.js
+src/controllers/reputacao.js
+src/controllers/notificacoes.js
+src/database/createDatabase/Tabelas.sql
+docs/api.md
+README.md
+```
+
+## 5.3 Frontend — arquivos NOVOS
+
+Criar:
+
+```text
+src/services/github.ts
+src/services/rankings.ts
+src/components/projects/GithubProjectPanel.tsx
+src/components/projects/GithubTaskActivity.tsx
+src/components/projects/GithubTaskBadge.tsx
+src/components/projects/TopCommitters.tsx
+src/components/projects/TopContributors.tsx
+```
+
+Se o projeto já tiver uma pasta central de tipos, criar:
+
+```text
+src/types/github.ts
+```
+
+Caso contrário, manter tipos em `projectDetail.ts` para evitar arquitetura artificial.
+
+## 5.4 Frontend — arquivos EXISTENTES a alterar
+
+Obrigatoriamente revisar e alterar quando aplicável:
+
+```text
+src/components/projects/KanbanBoard.tsx
+src/services/projectDetail.ts
+src/services/api.ts
+```
+
+Também localizar e alterar a página real de detalhes do projeto para incluir:
+
+```text
+GithubProjectPanel
+TopCommitters
+TopContributors
+```
+
+Localizar a página/tela global adequada para incluir ranking global.
+
+Não inventar uma rota sem antes verificar a estrutura real do TanStack Router.
+
+---
+
+# 6. ETAPA 0 — Baseline e proteção contra regressão
 
 ## Objetivo
 
-Alinhar o Kanban ao conceito colaborativo do MontesSquad.
+Conhecer o estado atual antes de alterar qualquer comportamento.
 
-Uma tarefa poderá ser criada sem responsável:
+## Arquivos a LER
 
-```text
-Criar API de Login
-Node.js · JWT
-
-Sem responsável
-[ Assumir tarefa ]
-```
-
-Ao clicar:
+Backend:
 
 ```text
-Deseja assumir esta tarefa?
-
-Ao assumir, você será registrado como responsável pela entrega.
-
-[ Cancelar ] [ Assumir ]
+package.json
+index.js
+src/routes/routes.js
+src/controllers/tarefas.js
+src/controllers/projetos.js
+src/controllers/reputacao.js
+src/controllers/notificacoes.js
+src/middlewares/auth.js
+src/database/createDatabase/Tabelas.sql
 ```
 
-Regras sugeridas:
-
-- somente membro ou owner pode assumir;
-- tarefa deve pertencer ao projeto;
-- se já existir responsável, retornar conflito;
-- operação deve ser atômica para impedir dois usuários assumindo simultaneamente;
-- usar UPDATE condicional/transaction;
-- registrar timestamp `assumida_em` futuramente;
-- ao assumir uma tarefa `todo`, mover para `doing` automaticamente;
-- se projeto tiver GitHub conectado, gerar/vincular branch sugerida.
-
-Endpoint sugerido:
+Frontend:
 
 ```text
-POST /projetos/:projetoId/tarefas/:tarefaId/assumir
+package.json
+src/components/projects/KanbanBoard.tsx
+src/services/projectDetail.ts
+src/services/api.ts
 ```
+
+Também localizar:
+
+- página de detalhes do projeto;
+- página de perfil;
+- layout/sidebar;
+- testes atuais de projeto/task;
+- onde XP é concedido no frontend.
+
+## O que ALTERAR
+
+Nada nesta etapa, salvo correção mínima necessária para fazer a suíte atual executar.
+
+## O que EXECUTAR
+
+Backend:
+
+```bash
+npm test
+```
+
+Frontend:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+## Entregável da etapa
+
+Registrar:
+
+- testes que já falhavam antes;
+- arquitetura real encontrada;
+- arquivos exatos que concedem XP;
+- página exata de detalhe do projeto;
+- página adequada para ranking global.
+
+## Gate
+
+Não seguir se não houver baseline conhecido.
 
 ---
 
-# 10. Orientação Git ao assumir tarefa
+# 7. ETAPA 1 — Banco de dados e migration GitHub
 
-Quando projeto possuir GitHub conectado, após assumir mostrar:
+## Objetivo
 
-```text
-Você assumiu esta tarefa.
+Criar persistência para identidade GitHub, repository, branch, commits, PRs, webhook delivery e XP idempotente.
 
-Para começar:
-
-1. Atualize sua main
-   git checkout main
-   git pull origin main
-
-2. Crie a branch
-   git checkout -b task/38-criar-api-de-login
-
-3. Publique a branch
-   git push -u origin task/38-criar-api-de-login
-
-[ Copiar comandos ]
-```
-
-O sistema deve ensinar o fluxo sem obrigar o usuário a decorar Git.
-
----
-
-# 11. Branch da tarefa
-
-No MVP:
-
-- MontesSquad gera o nome;
-- usuário cria a branch localmente;
-- webhook associa eventos pela branch.
-
-Evolução futura:
+## CRIAR
 
 ```text
-[ Criar branch no GitHub ]
+scripts/migrar_github_integracao.js
 ```
 
-A GitHub App poderia criar branch automaticamente, porém isso exigirá permissão de escrita em Contents. Não solicitar essa permissão no MVP sem necessidade.
-
----
-
-# 12. Fluxo GitHub completo da tarefa
+## ALTERAR
 
 ```text
-TASK CRIADA
-   ↓
-TODO
-   ↓
-usuário assume
-   ↓
-DOING
-   ↓
-branch task/38-criar-api-de-login
-   ↓
-commits/push
-   ↓
-atividade registrada
-   ↓
-Pull Request aberto
-   ↓
-REVIEW
-   ↓
-review/correções
-   ↓
-PR mergeado
-   ↓
-DONE
-   ↓
-XP + evidência verificada + métricas
+src/database/createDatabase/Tabelas.sql
+package.json
 ```
 
-Commit não muda para `done`.
-
----
-
-# 13. Nova coluna Em revisão
-
-Alterar status:
-
-```ts
-export type KanbanStatus = "todo" | "doing" | "review" | "done";
-```
-
-Kanban:
-
-```text
-A FAZER | EM PROGRESSO | EM REVISÃO | CONCLUÍDO
-```
-
-Transições:
-
-```text
-todo -> doing       usuário assume/inicia
-doing -> review     PR aberto
-review -> doing     PR fechado sem merge, quando aplicável
-review -> done      PR mergeado
-```
-
----
-
-# 14. Banco — usuários
-
-Migration idempotente:
-
-```sql
-ALTER TABLE usuarios
-ADD COLUMN github_user_id BIGINT NULL,
-ADD COLUMN github_login VARCHAR(100) NULL,
-ADD COLUMN github_avatar_url VARCHAR(500) NULL,
-ADD COLUMN github_connected_at DATETIME NULL,
-ADD UNIQUE INDEX uq_usuarios_github_user_id (github_user_id);
-```
-
----
-
-# 15. Banco — projetos
+## 7.1 Alterar `usuarios`
 
 Adicionar:
 
 ```sql
-ALTER TABLE projetos
-ADD COLUMN github_repository_id BIGINT NULL,
-ADD COLUMN github_repository_full_name VARCHAR(255) NULL,
-ADD COLUMN github_installation_id BIGINT NULL,
-ADD COLUMN github_default_branch VARCHAR(255) NULL,
-ADD COLUMN github_connected_at DATETIME NULL;
+github_user_id BIGINT NULL
+github_login VARCHAR(100) NULL
+github_avatar_url VARCHAR(500) NULL
+github_connected_at DATETIME NULL
 ```
 
-Avaliar se o mesmo repository poderá ser conectado a mais de um projeto antes de impor UNIQUE. Para MVP, preferencialmente impedir duplicidade dentro de projetos ativos para evitar evento associado ao projeto errado.
+Criar unique em `github_user_id` quando não nulo.
 
----
+## 7.2 Alterar `projetos`
 
-# 16. Banco — tarefas
-
-Adicionar/alterar:
+Adicionar:
 
 ```sql
-ALTER TABLE tarefas
-MODIFY COLUMN status ENUM('todo','doing','review','done') DEFAULT 'todo' NOT NULL,
-ADD COLUMN github_branch VARCHAR(255) NULL,
-ADD COLUMN github_pr_number INT NULL,
-ADD COLUMN github_pr_id BIGINT NULL,
-ADD COLUMN github_pr_url VARCHAR(500) NULL,
-ADD COLUMN github_pr_status ENUM('none','open','closed','merged') DEFAULT 'none',
-ADD COLUMN github_last_activity_at DATETIME NULL,
-ADD COLUMN concluida_via ENUM('manual','github_merge') NULL,
-ADD COLUMN concluida_em DATETIME NULL;
+github_repository_id BIGINT NULL
+github_repository_full_name VARCHAR(255) NULL
+github_installation_id BIGINT NULL
+github_default_branch VARCHAR(255) NULL
+github_connected_at DATETIME NULL
 ```
 
-Criar índice de projeto + branch:
+## 7.3 Alterar `tarefas`
+
+Alterar enum:
 
 ```sql
-CREATE UNIQUE INDEX uq_tarefa_projeto_github_branch
-ON tarefas (projeto_id, github_branch);
+ENUM('todo','doing','review','done')
 ```
 
-Tratar `NULL` adequadamente no MySQL.
+Adicionar:
 
----
+```sql
+github_branch VARCHAR(255) NULL
+github_pr_number INT NULL
+github_pr_id BIGINT NULL
+github_pr_url VARCHAR(500) NULL
+github_pr_status ENUM('none','open','closed','merged') DEFAULT 'none'
+github_last_activity_at DATETIME NULL
+concluida_via ENUM('manual','github_merge') NULL
+concluida_em DATETIME NULL
+assumida_em DATETIME NULL
+```
 
-# 17. Banco — commits
+Criar índice:
+
+```sql
+INDEX idx_tarefas_projeto_github_branch (projeto_id, github_branch)
+```
+
+## 7.4 Criar `github_commits`
 
 ```sql
 CREATE TABLE github_commits (
@@ -668,18 +529,16 @@ CREATE TABLE github_commits (
     commit_url VARCHAR(500) NULL,
     committed_at DATETIME NULL,
     recebido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_github_commit_repository_sha (repository_id, sha),
-    INDEX idx_github_commits_tarefa (tarefa_id),
-    INDEX idx_github_commits_projeto (projeto_id),
-    INDEX idx_github_commits_author (author_github_id),
+    UNIQUE KEY uq_github_commit_repo_sha (repository_id, sha),
+    INDEX idx_github_commit_tarefa (tarefa_id),
+    INDEX idx_github_commit_projeto (projeto_id),
+    INDEX idx_github_commit_author (author_github_id),
     FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
     FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 ```
 
----
-
-# 18. Banco — Pull Requests
+## 7.5 Criar `github_pull_requests`
 
 ```sql
 CREATE TABLE github_pull_requests (
@@ -700,16 +559,13 @@ CREATE TABLE github_pull_requests (
     fechado_em DATETIME NULL,
     mergeado_em DATETIME NULL,
     atualizado_em DATETIME NULL,
-    UNIQUE KEY uq_repository_pr (repository_id, numero),
-    INDEX idx_pr_tarefa (tarefa_id),
+    UNIQUE KEY uq_github_pr_repo_numero (repository_id, numero),
     FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
     FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 ```
 
----
-
-# 19. Banco — deliveries do webhook
+## 7.6 Criar `github_webhook_deliveries`
 
 ```sql
 CREATE TABLE github_webhook_deliveries (
@@ -722,17 +578,11 @@ CREATE TABLE github_webhook_deliveries (
     erro TEXT NULL,
     recebido_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     processado_em DATETIME NULL,
-    UNIQUE KEY uq_github_delivery_id (delivery_id)
+    UNIQUE KEY uq_github_delivery (delivery_id)
 ) ENGINE=InnoDB;
 ```
 
-Objetivo: idempotência.
-
----
-
-# 20. Banco — eventos XP
-
-XP deve ser concedido no backend e ser idempotente.
+## 7.7 Criar `eventos_xp`
 
 ```sql
 CREATE TABLE eventos_xp (
@@ -743,81 +593,154 @@ CREATE TABLE eventos_xp (
     xp INT NOT NULL,
     chave_idempotencia VARCHAR(255) NOT NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_evento_xp_chave (chave_idempotencia),
+    UNIQUE KEY uq_eventos_xp_chave (chave_idempotencia),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 ```
 
-Exemplo:
+## 7.8 Migration
 
-```text
-task:38:github-merge:pr:52
-```
+`migrar_github_integracao.js` deve:
 
----
+1. conectar ao banco usando configuração atual;
+2. consultar `INFORMATION_SCHEMA` antes de adicionar coluna/índice;
+3. ser idempotente;
+4. nunca apagar dados;
+5. criar tabelas ausentes;
+6. adaptar enum de tarefas;
+7. imprimir resumo;
+8. encerrar com status de erro se alguma operação falhar.
 
-# 21. Migration
-
-Criar:
-
-```text
-scripts/migrar_github_integracao.js
-```
-
-Obrigatório:
-
-- idempotente;
-- não apagar dados;
-- verificar colunas antes de criar;
-- criar tabelas se ausentes;
-- criar índices;
-- atualizar enum;
-- informar cada alteração;
-- falhar claramente em erro.
-
-Adicionar:
+Adicionar ao `package.json`:
 
 ```json
 "db:github": "node scripts/migrar_github_integracao.js"
 ```
 
+## Testes/validação
+
+Executar migration duas vezes. A segunda execução deve finalizar sem erro e sem duplicar objetos.
+
+## Gate
+
+Só seguir após schema final validado.
+
 ---
 
-# 22. GitHub App
+# 8. ETAPA 2 — Contratos de tarefa e coluna `review`
 
-Usar GitHub App, não PAT pessoal permanente.
+## Objetivo
 
-Permissões MVP:
+Fazer backend e frontend entenderem o quarto estado antes dos webhooks.
 
-```text
-Contents: Read-only
-Metadata: Read-only
-Pull requests: Read-only
-```
-
-Eventos:
+## Backend — ALTERAR
 
 ```text
-push
-pull_request
-installation
-installation_repositories
+src/controllers/tarefas.js
+src/controllers/projetos.js
 ```
 
-Dependências sugeridas:
+### Em `tarefas.js`
+
+Alterar:
+
+```js
+const STATUS_VALIDOS = ["todo", "doing", "review", "done"];
+```
+
+Garantir que listagem/atualização aceite `review`.
+
+### Em `projetos.js`
+
+Garantir que `obterProjeto` retorne `review` sem remapeamento incorreto.
+
+Retornar novos campos GitHub da task quando existentes:
+
+```text
+githubBranch
+githubPrNumber
+githubPrUrl
+githubPrStatus
+githubLastActivityAt
+completionSource
+completedAt
+```
+
+## Frontend — ALTERAR
+
+```text
+src/services/projectDetail.ts
+src/components/projects/KanbanBoard.tsx
+```
+
+### `projectDetail.ts`
+
+Alterar:
+
+```ts
+export type KanbanStatus = "todo" | "doing" | "review" | "done";
+```
+
+Expandir `KanbanTask` com campos GitHub.
+
+### `KanbanBoard.tsx`
+
+Adicionar coluna:
+
+```text
+Em revisão
+```
+
+Adicionar `review` ao dropdown mobile e drag/drop.
+
+Nesta etapa ainda NÃO implementar automação por GitHub.
+
+## Testes
+
+- backend aceita PATCH para `review`;
+- frontend renderiza 4 colunas;
+- task em `review` aparece na coluna correta;
+- build/lint passam.
+
+## Gate
+
+Frontend e backend precisam aceitar `review` antes de seguir.
+
+---
+
+# 9. ETAPA 3 — GitHub App e configuração
+
+## Objetivo
+
+Criar camada única para autenticação do backend com GitHub.
+
+## Backend — CRIAR
+
+```text
+src/services/githubApp.js
+```
+
+## Backend — ALTERAR
+
+```text
+package.json
+.env.example
+```
+
+## Dependências
+
+Adicionar:
 
 ```bash
 npm install @octokit/app @octokit/rest @octokit/webhooks
 ```
 
-Solicitar somente permissões realmente usadas.
+Usar somente as realmente necessárias após verificar compatibilidade CommonJS da aplicação atual.
 
----
+## `.env.example`
 
-# 23. Variáveis de ambiente
-
-Adicionar `.env.example`:
+Adicionar:
 
 ```env
 GITHUB_APP_ID=
@@ -825,308 +748,279 @@ GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GITHUB_PRIVATE_KEY=
 GITHUB_WEBHOOK_SECRET=
-GITHUB_APP_SLUG=montesquad-integration
+GITHUB_APP_SLUG=
 GITHUB_CALLBACK_URL=http://localhost:3333/github/callback
-GITHUB_FRONTEND_SUCCESS_URL=http://localhost:5173/configuracoes/integracoes
+GITHUB_FRONTEND_SUCCESS_URL=http://localhost:5173
 ```
 
-Nunca versionar secrets.
+## `githubApp.js`
 
----
-
-# 24. Serviços backend GitHub
-
-Manter arquitetura próxima do padrão atual.
-
-Sugestão:
-
-```text
-src/controllers/github.js
-src/services/github.js
-src/services/githubWebhook.js
-src/services/githubMetrics.js
-```
-
-Funções esperadas:
+Implementar e exportar funções equivalentes a:
 
 ```js
 getGitHubApp()
 getInstallationClient(installationId)
-getRepository(...)
-listInstallationRepositories(...)
-verifyWebhookSignature(...)
-processPush(...)
-processPullRequest(...)
+getRepositoryById(installationId, repositoryId)
+listInstallationRepositories(installationId)
 ```
 
-Nunca espalhar criação de Octokit pelos controllers.
+Requisitos:
+
+- validar envs ao usar serviço;
+- não logar secrets;
+- não enviar installation token ao frontend;
+- encapsular Octokit em um único módulo.
+
+## Testes
+
+Mockar Octokit. Não depender de GitHub real na suíte automática.
+
+## Gate
+
+Serviço instanciável e testável antes de criar webhook.
 
 ---
 
-# 25. Webhook
+# 10. ETAPA 4 — Webhook seguro e idempotente
 
-Endpoint:
+## Objetivo
+
+Criar entrada pública confiável para eventos GitHub.
+
+## Backend — CRIAR
+
+```text
+src/controllers/github.js
+src/services/githubWebhook.js
+test/github.webhook.test.js
+```
+
+## Backend — ALTERAR
+
+```text
+index.js
+src/routes/routes.js
+```
+
+## 10.1 Alteração crítica em `index.js`
+
+Preservar raw body de `/github/webhook`.
+
+Não deixar `express.json()` consumir/modificar o body antes da verificação da assinatura.
+
+Implementar uma das estratégias válidas:
+
+- middleware `express.raw()` específico antes do JSON global;
+- `verify` de `express.json()` salvando raw body.
+
+Escolher uma estratégia e adicionar teste.
+
+## 10.2 `githubWebhook.js`
+
+Implementar:
+
+```js
+verifyWebhookSignature(rawBody, signature)
+getDeliveryId(req)
+registerDelivery(...)
+markDeliveryProcessed(...)
+markDeliveryFailed(...)
+isDeliveryDuplicate(...)
+```
+
+Validar:
+
+```text
+X-Hub-Signature-256
+X-GitHub-Delivery
+X-GitHub-Event
+```
+
+Assinatura com HMAC SHA-256 e `timingSafeEqual` ou biblioteca oficial equivalente.
+
+## 10.3 `github.js`
+
+Criar controller:
+
+```js
+webhook(request, response, next)
+```
+
+Fluxo:
+
+1. obter raw body;
+2. validar assinatura;
+3. verificar delivery duplicado;
+4. identificar evento;
+5. registrar delivery;
+6. delegar para processador apropriado;
+7. marcar processado;
+8. responder 200;
+9. em erro, registrar falha.
+
+## 10.4 `routes.js`
+
+Adicionar:
 
 ```text
 POST /github/webhook
 ```
 
-Não usar JWT MontesSquad.
+NÃO usar `verificarToken` nessa rota.
 
-Autenticação do webhook:
+## Testes obrigatórios
 
-```text
-X-Hub-Signature-256
-```
+- assinatura correta → 200;
+- assinatura inválida → 401/403;
+- assinatura ausente → rejeita;
+- delivery novo → processa;
+- delivery repetido → 200 sem reprocessar;
+- body adulterado → rejeita.
 
-Idempotência:
+## Gate
 
-```text
-X-GitHub-Delivery
-```
-
-A assinatura deve usar o raw body original.
-
-Usar HMAC SHA-256 e `timingSafeEqual`.
+Não implementar `push` antes de segurança/idempotência estarem passando.
 
 ---
 
-# 26. Processamento push
+# 11. ETAPA 5 — Conexão do projeto com repositório GitHub
 
-Extrair:
+## Objetivo
 
-```text
-repository.id
-repository.full_name
-installation.id
-ref
-commits[]
-```
+Permitir que projeto seja criado sem GitHub e conectado depois.
 
-Transformar:
+## Backend — ALTERAR
 
 ```text
-refs/heads/task/38-criar-api-de-login
+src/controllers/github.js
+src/controllers/projetos.js
+src/routes/routes.js
 ```
 
-em:
+## Frontend — CRIAR
 
 ```text
-task/38-criar-api-de-login
+src/services/github.ts
+src/components/projects/GithubProjectPanel.tsx
 ```
 
-Localizar task por:
+## Frontend — ALTERAR
+
+Página real de detalhe do projeto.
+
+## Backend — endpoints a CRIAR
 
 ```text
-repository id + branch
+GET  /github/installations/:installationId/repositories
+POST /projetos/:projetoId/github/repository
+GET  /projetos/:projetoId/github/status
+DELETE /projetos/:projetoId/github/repository
 ```
 
-Para cada commit:
+Dependendo do fluxo de instalação real também criar:
 
-- validar payload;
-- salvar `INSERT IGNORE`/upsert;
-- impedir duplicata por repository + SHA;
-- associar autoria GitHub;
-- atualizar última atividade da task;
-- NÃO concluir task.
+```text
+GET /github/install
+GET /github/callback
+```
+
+## `POST /projetos/:id/github/repository`
+
+Somente owner.
+
+Payload do frontend:
+
+```json
+{
+  "installationId": 123,
+  "repositoryId": 456
+}
+```
+
+Backend deve consultar GitHub e obter por conta própria:
+
+```text
+full_name
+default_branch
+html_url
+```
+
+Nunca confiar em full name enviado pelo browser.
+
+Persistir:
+
+```text
+github_repository_id
+github_repository_full_name
+github_installation_id
+github_default_branch
+github_connected_at
+repositorio_url
+```
+
+## Frontend — `github.ts`
+
+Criar funções:
+
+```ts
+getProjectGithubStatus(projectId)
+getInstallationRepositories(installationId)
+connectProjectRepository(projectId, payload)
+disconnectProjectRepository(projectId)
+```
+
+## Frontend — `GithubProjectPanel.tsx`
+
+Estados obrigatórios:
+
+```text
+loading
+não conectado
+conectado
+erro
+permissão insuficiente
+repositório removido
+```
+
+## Testes
+
+- não-owner → 403;
+- repository inexistente/não autorizado → erro;
+- owner conecta → dados salvos;
+- projeto sem GitHub continua funcionando;
+- desconexão não apaga tasks.
+
+## Gate
+
+Projeto precisa conectar/desconectar repository antes de task GitHub.
 
 ---
 
-# 27. Pull Request
+# 12. ETAPA 6 — Identidade GitHub do usuário
 
-Eventos:
+## Objetivo
 
-```text
-opened
-reopened
-synchronize
-closed
-```
+Relacionar autoria do GitHub ao usuário MontesSquad.
 
-## opened/reopened
-
-- localizar task por `head.ref`;
-- registrar PR;
-- salvar número/ID/URL;
-- status PR = open;
-- task = review.
-
-## synchronize
-
-- atualizar atividade;
-- commits continuam entrando via push quando aplicável.
-
-## closed sem merge
-
-- PR = closed;
-- NÃO concluir;
-- MVP: task `review -> doing`.
-
-## closed + merged
-
-- PR = merged;
-- task = done;
-- `concluida_via = github_merge`;
-- `concluida_em = merged_at`;
-- conceder XP uma única vez;
-- gerar notificação;
-- atualizar rankings/métricas.
-
----
-
-# 28. Conclusão transacional
-
-Merge deve ser processado em transaction:
+## Backend — ALTERAR
 
 ```text
-BEGIN
-SELECT task FOR UPDATE
-verificar idempotência
-atualizar task
-registrar/atualizar PR
-conceder XP
-criar notificação
-COMMIT
+src/controllers/github.js
+src/controllers/usuarios.js
+src/routes/routes.js
 ```
 
-Erro:
+## Frontend — ALTERAR/CRIAR
 
-```text
-ROLLBACK
-```
+Usar tela de perfil/configurações existente; não criar tela paralela sem necessidade.
 
-Nunca conceder XP duas vezes pelo mesmo merge.
-
----
-
-# 29. Movimentação manual
-
-Sem GitHub na task:
-
-```text
-fluxo manual permanece disponível
-```
-
-Com GitHub vinculado:
-
-```text
-todo -> doing: permitido
-doing -> review: preferencialmente PR
-review -> done: merge ou override do owner
-```
-
-Override do owner deve exigir confirmação explícita:
-
-```text
-Concluir sem merge?
-Esta tarefa está integrada ao GitHub e ainda não possui PR mergeado.
-```
-
-Registrar:
-
-```text
-concluida_via = manual
-```
-
-Conclusão manual não deve receber selo `Verificado pelo GitHub`.
-
----
-
-# 30. Card do Kanban
-
-Exemplo em andamento:
-
-```text
-Criar API de Login
-João Silva
-Alta
-
-GitHub ✓
-task/38-criar-api-de-login
-4 commits
-última atividade há 12 min
-```
-
-Em review:
-
-```text
-PR #52 · Em revisão
-[ Abrir Pull Request ]
-```
-
-Done verificado:
-
-```text
-✓ PR #52 mergeado
-✓ Conclusão verificada pelo GitHub
-```
-
----
-
-# 31. Modal da task
-
-Criar seção `Integração GitHub`.
-
-Mostrar:
-
-- repositório;
-- branch;
-- botão copiar branch;
-- botão abrir branch;
-- PR;
-- estado do PR;
-- commits;
-- autor;
-- data;
-- conclusão verificada.
-
-Exemplo:
-
-```text
-COMMITS
-
-a92f830  feat: cria endpoint de autenticação
-@joaosilva · hoje 13:42
-
-8ad194f  feat: adiciona JWT
-@joaosilva · hoje 14:13
-```
-
----
-
-# 32. Service GitHub frontend
-
-Criar:
+Adicionar métodos em:
 
 ```text
 src/services/github.ts
 ```
 
-Funções sugeridas:
-
-```ts
-getGithubConnection()
-connectGithub()
-disconnectGithub()
-getGithubInstallations()
-getInstallationRepositories()
-connectProjectRepository(projectId, payload)
-disconnectProjectRepository(projectId)
-getProjectGithubStatus(projectId)
-linkTaskBranch(projectId, taskId, branch)
-getTaskGithubActivity(projectId, taskId)
-getTaskCommits(projectId, taskId)
-getProjectCommitters(projectId)
-getGlobalCommitters()
-getProjectContributors(projectId)
-getGlobalContributors()
-```
-
----
-
-# 33. APIs necessárias
-
-## Usuário
+## Endpoints
 
 ```text
 GET    /github/me
@@ -1135,14 +1029,1052 @@ GET    /github/callback
 DELETE /github/disconnect
 ```
 
-## Projeto
+Se callback de GitHub App e identidade do usuário exigirem fluxos diferentes, separar claramente instalação da App de OAuth do usuário.
+
+Persistir:
 
 ```text
-GET    /github/installations
+github_user_id
+github_login
+github_avatar_url
+github_connected_at
+```
+
+## Segurança
+
+- usar `state` anti-CSRF no OAuth;
+- não salvar senha GitHub;
+- tokens de usuário, caso indispensáveis, nunca no localStorage;
+- preferir armazenar apenas identidade quando não houver necessidade de agir em nome do usuário.
+
+## Testes
+
+- conta conecta;
+- github_user_id duplicado é rejeitado adequadamente;
+- desconectar remove vínculo sem apagar histórico de commits.
+
+## Gate
+
+Autoria precisa ser resolvível antes de ranking por usuário.
+
+---
+
+# 13. ETAPA 7 — Task assumível e geração de branch
+
+## Objetivo
+
+Transformar tarefas sem responsável em unidades de colaboração.
+
+## Backend — CRIAR/ALTERAR
+
+Alterar:
+
+```text
+src/controllers/tarefas.js
+src/routes/routes.js
+```
+
+Criar utilitário se necessário:
+
+```text
+src/utils/slugify.js
+```
+
+## Endpoint NOVO
+
+```text
+POST /projetos/:projetoId/tarefas/:tarefaId/assumir
+```
+
+## Implementação obrigatória
+
+Executar de forma atômica.
+
+Exemplo conceitual:
+
+```sql
+UPDATE tarefas
+SET responsavel_id = ?, status = 'doing', assumida_em = NOW()
+WHERE id = ?
+  AND projeto_id = ?
+  AND responsavel_id IS NULL;
+```
+
+Se `affectedRows = 0`, consultar task:
+
+- inexistente → 404;
+- já possui responsável → 409.
+
+Validar que usuário é membro/dono.
+
+## Branch
+
+Após criação da task, se projeto tiver GitHub conectado, preencher `github_branch` com:
+
+```text
+task/{id}-{slug}
+```
+
+Decisão recomendada: gerar branch sugerida já na criação da task, independentemente de haver responsável, pois o ID já existe.
+
+## Frontend — ALTERAR
+
+```text
+src/components/projects/KanbanBoard.tsx
+src/services/projectDetail.ts
+```
+
+Adicionar:
+
+- botão `Assumir tarefa`;
+- loading durante operação;
+- impedir duplo clique;
+- tratar 409;
+- mostrar branch após assumir;
+- botão `Copiar comandos`.
+
+## Service
+
+Adicionar em `projectDetail.ts` ou `github.ts`, conforme responsabilidade:
+
+```ts
+claimTask(projectId, taskId)
+```
+
+## Testes
+
+- dois usuários tentando assumir → apenas um vence;
+- não membro → 403;
+- task inexistente → 404;
+- task assumida vai para `doing`;
+- branch possui ID correto;
+- slug trata acentos/espaços.
+
+## Gate
+
+Não implementar push até branch-task ser determinística.
+
+---
+
+# 14. ETAPA 8 — Processamento de `push` e commits
+
+## Objetivo
+
+Registrar commits automaticamente na task correta.
+
+## Backend — CRIAR
+
+```text
+src/services/githubEvents.js
+src/services/githubTasks.js
+test/github.push.test.js
+```
+
+## Backend — ALTERAR
+
+```text
+src/controllers/github.js
+src/routes/routes.js
+```
+
+## `githubEvents.js`
+
+Implementar:
+
+```js
+processGitHubEvent(eventName, payload, context)
+processPushEvent(payload, context)
+processPullRequestEvent(payload, context) // placeholder só se necessário, implementação completa na próxima etapa
+```
+
+## `githubTasks.js`
+
+Implementar funções equivalentes a:
+
+```js
+findTaskByRepositoryAndBranch(repositoryId, branch)
+insertCommitIfAbsent(task, commit, repositoryId)
+updateTaskGithubActivity(taskId, timestamp)
+getTaskCommits(taskId)
+```
+
+## Push
+
+Extrair:
+
+```text
+repository.id
+installation.id
+ref
+commits[]
+```
+
+Converter:
+
+```text
+refs/heads/task/38-api-login
+```
+
+para:
+
+```text
+task/38-api-login
+```
+
+Localizar projeto por `github_repository_id` e task por `github_branch`.
+
+Para cada commit:
+
+- salvar SHA;
+- mensagem;
+- autor;
+- login quando disponível;
+- email quando fornecido;
+- URL;
+- horário;
+- branch;
+- repository ID.
+
+Usar `INSERT IGNORE` ou tratamento explícito da unique key.
+
+Não gerar XP.
+
+Não concluir task.
+
+## Endpoints NOVOS
+
+```text
+GET /projetos/:projetoId/tarefas/:tarefaId/github
+GET /projetos/:projetoId/tarefas/:tarefaId/commits
+```
+
+Somente membro/dono.
+
+## Frontend — CRIAR
+
+```text
+src/components/projects/GithubTaskActivity.tsx
+src/components/projects/GithubTaskBadge.tsx
+```
+
+## Frontend — ALTERAR
+
+```text
+src/components/projects/KanbanBoard.tsx
+src/services/github.ts
+src/services/projectDetail.ts
+```
+
+Mostrar no card:
+
+```text
+GitHub ✓
+4 commits
+última atividade há 12 min
+```
+
+No modal:
+
+```text
+Branch
+Commit SHA curto
+Mensagem
+Autor
+Data
+Link para commit
+```
+
+## Atualização
+
+Usar React Query/polling contra **MontesSquad API**, não contra GitHub.
+
+Sugestão inicial:
+
+```ts
+refetchInterval: 15000
+```
+
+apenas quando tela relevante estiver aberta.
+
+## Testes
+
+- branch conhecida → commit salvo;
+- branch desconhecida → delivery processado sem task alterada;
+- commit repetido → não duplica;
+- push repetido → não duplica;
+- commit não conclui task;
+- frontend renderiza histórico.
+
+## Gate
+
+Commits precisam estar estáveis antes de PR.
+
+---
+
+# 15. ETAPA 9 — Pull Request e automação do Kanban
+
+## Objetivo
+
+Automatizar `doing → review → done`.
+
+## Backend — ALTERAR
+
+```text
+src/services/githubEvents.js
+src/services/githubTasks.js
+src/controllers/github.js
+```
+
+## CRIAR teste
+
+```text
+test/github.pullRequest.test.js
+```
+
+## Eventos obrigatórios
+
+```text
+pull_request.opened
+pull_request.reopened
+pull_request.synchronize
+pull_request.closed
+```
+
+## `opened/reopened`
+
+Localizar task por:
+
+```text
+repository.id + pull_request.head.ref
+```
+
+Upsert em `github_pull_requests`.
+
+Atualizar task:
+
+```text
+github_pr_number
+github_pr_id
+github_pr_url
+github_pr_status = open
+status = review
+github_last_activity_at
+```
+
+## `synchronize`
+
+Atualizar PR e atividade.
+
+Não mudar `review` para outro estado.
+
+## `closed` sem merge
+
+Atualizar:
+
+```text
+github_pr_status = closed
+```
+
+Regra MVP:
+
+```text
+review → doing
+```
+
+Não conceder XP.
+
+## `closed` com `merged=true`
+
+Executar transação:
+
+1. lock na task;
+2. verificar se já concluída pelo mesmo PR;
+3. atualizar PR para merged;
+4. atualizar task para done;
+5. `concluida_via = github_merge`;
+6. `concluida_em = merged_at`;
+7. chamar serviço XP idempotente;
+8. criar notificação;
+9. commit.
+
+## Frontend
+
+Atualizar `GithubTaskBadge.tsx` e `GithubTaskActivity.tsx` para exibir:
+
+```text
+PR #52 aberto
+PR #52 mergeado
+Conclusão verificada pelo GitHub ✓
+```
+
+## Testes
+
+- opened → review;
+- reopened → review;
+- synchronize → continua review;
+- closed sem merge → doing;
+- closed merged → done;
+- delivery repetido → não repetir efeitos.
+
+## Gate
+
+Não mexer em ranking/XP até automação do PR estar transacional.
+
+---
+
+# 16. ETAPA 10 — XP autoritativo no backend
+
+## Objetivo
+
+Remover a possibilidade de XP ser controlado pelo navegador.
+
+## Backend — CRIAR
+
+```text
+src/services/xp.js
+```
+
+## Backend — ALTERAR
+
+```text
+src/controllers/reputacao.js
+src/services/githubEvents.js
+```
+
+## Frontend — ALTERAR
+
+```text
+src/components/projects/KanbanBoard.tsx
+```
+
+Remover chamada autoritativa existente a `awardLocalXP(150)` ao simplesmente mover para `done`.
+
+Se o frontend mantiver feedback visual, ele deve apenas mostrar o resultado retornado pelo backend.
+
+## `xp.js`
+
+Implementar algo equivalente a:
+
+```js
+awardXp({ connection, usuarioId, tarefaId, type, xp, idempotencyKey })
+```
+
+Fluxo:
+
+1. inserir `eventos_xp`;
+2. se unique conflict → não conceder novamente;
+3. atualizar `estatisticas_usuario`;
+4. recalcular nível se regra atual exigir;
+5. retornar estado atualizado.
+
+Chave de merge:
+
+```text
+task:{taskId}:github-merge:pr:{prNumber}
+```
+
+## Conclusão manual
+
+Definir explicitamente regra de XP manual.
+
+Recomendação:
+
+- manter compatibilidade atual, mas backend concede;
+- usar chave `task:{id}:manual-completion`;
+- impedir duplicidade.
+
+## Testes
+
+- merge concede XP uma vez;
+- webhook repetido não concede novamente;
+- frontend mover card não cria XP sozinho;
+- estatísticas permanecem coerentes.
+
+## Gate
+
+XP deve ser server-side antes dos rankings pontuados.
+
+---
+
+# 17. ETAPA 11 — Top Committers por projeto
+
+## Objetivo
+
+Mostrar volume de commits GitHub válidos dentro de um projeto.
+
+## Backend — CRIAR
+
+```text
+src/controllers/rankings.js
+src/services/rankings.js
+test/github.rankings.test.js
+```
+
+## Backend — ALTERAR
+
+```text
+src/routes/routes.js
+```
+
+## Endpoint NOVO
+
+```text
+GET /projetos/:projetoId/rankings/committers
+```
+
+## Query/regra
+
+Contar somente commits que:
+
+- existem em `github_commits`;
+- pertencem a tasks do projeto;
+- possuem `author_github_id` relacionado a `usuarios.github_user_id` quando o ranking for atribuído a usuário MontesSquad.
+
+Não contar commits externos soltos do perfil GitHub.
+
+Resposta:
+
+```json
+{
+  "sucesso": true,
+  "dados": [
+    {
+      "userId": "12",
+      "name": "João Silva",
+      "githubLogin": "joaosilva",
+      "avatarUrl": "...",
+      "commitCount": 32
+    }
+  ]
+}
+```
+
+## Frontend — CRIAR
+
+```text
+src/services/rankings.ts
+src/components/projects/TopCommitters.tsx
+```
+
+## Frontend — ALTERAR
+
+Página de detalhe do projeto.
+
+Adicionar bloco:
+
+```text
+Top Committers
+1. João — 32 commits
+2. Maria — 24 commits
+3. Pedro — 17 commits
+```
+
+## Regras UX
+
+- explicar que quantidade não significa qualidade;
+- permitir top 3/5;
+- clicar pode abrir perfil se já existir rota;
+- não mostrar usuários sem vínculo identificável como membros do ranking principal; opcionalmente agrupar como “GitHub não vinculado” em área separada.
+
+## Testes
+
+- conta apenas projeto atual;
+- commit duplicado não aumenta ranking;
+- usuário desconectado posteriormente mantém histórico via GitHub ID salvo no commit, mas estratégia de exibição deve ser definida.
+
+## Gate
+
+Ranking por projeto precisa estar correto antes do global.
+
+---
+
+# 18. ETAPA 12 — Top Committers geral
+
+## Objetivo
+
+Criar ranking global da plataforma com commits vinculados a projetos MontesSquad.
+
+## Backend — ALTERAR
+
+```text
+src/controllers/rankings.js
+src/services/rankings.js
+src/routes/routes.js
+```
+
+## Endpoint NOVO
+
+```text
+GET /rankings/committers
+```
+
+Suportar query params:
+
+```text
+?limit=10&period=all
+?limit=10&period=month
+```
+
+Para MVP, `all` obrigatório; `month` opcional se simples.
+
+## Regra principal
+
+**NÃO consultar todos os commits da conta do usuário no GitHub.**
+
+Contar somente `github_commits` registrados dentro de projetos/tasks do MontesSquad.
+
+## Frontend
+
+Reutilizar `TopCommitters.tsx` com `scope="global"` ou criar wrapper apenas se necessário.
+
+Inserir em uma página apropriada encontrada no baseline:
+
+- dashboard;
+- comunidade;
+- ranking;
+- home logada.
+
+Não criar nova navegação desnecessariamente.
+
+## Testes
+
+- agrega múltiplos projetos;
+- respeita limit;
+- não conta commit fora do MontesSquad.
+
+## Gate
+
+Top Committers global validado antes de Top Contributors.
+
+---
+
+# 19. ETAPA 13 — Top Contributors por projeto
+
+## Objetivo
+
+Criar ranking principal de contribuição, evitando incentivar microcommits.
+
+## Backend — ALTERAR
+
+```text
+src/services/rankings.js
+src/controllers/rankings.js
+src/routes/routes.js
+```
+
+## Frontend — CRIAR
+
+```text
+src/components/projects/TopContributors.tsx
+```
+
+## Endpoint
+
+```text
+GET /projetos/:projetoId/rankings/contributors
+```
+
+## Métricas consideradas
+
+Mínimo:
+
+```text
+commits válidos
+tasks verificadas por GitHub
+PRs abertos
+PRs mergeados
+```
+
+## Pontuação sugerida inicial
+
+```text
+commit válido                  = 1 ponto
+PR aberto                      = 10 pontos
+PR mergeado                    = 30 pontos
+task concluída via github_merge = 50 pontos
+```
+
+### Anti-gaming
+
+Limitar pontos provenientes de commits por task.
+
+Exemplo:
+
+```text
+máximo 20 pontos de commit por task
+```
+
+Assim:
+
+- 3 commits úteis = 3 pontos;
+- 100 microcommits na mesma task = no máximo 20 pontos;
+- merge e entrega continuam pesando mais.
+
+Implementar a fórmula em **um único lugar** dentro de `src/services/rankings.js`.
+
+Criar constantes:
+
+```js
+CONTRIBUTION_SCORE = {
+  COMMIT: 1,
+  MAX_COMMIT_POINTS_PER_TASK: 20,
+  PR_OPENED: 10,
+  PR_MERGED: 30,
+  VERIFIED_TASK: 50,
+};
+```
+
+## Resposta
+
+```json
+{
+  "userId": "12",
+  "name": "João",
+  "score": 820,
+  "commitCount": 32,
+  "mergedPrCount": 4,
+  "verifiedTaskCount": 4
+}
+```
+
+## Frontend
+
+Mostrar como ranking principal:
+
+```text
+Top Contributors
+1. João — 820 pts
+   4 tasks verificadas · 4 PRs mergeados · 32 commits
+```
+
+Mostrar Top Committers como métrica secundária.
+
+## Testes
+
+- cap de commits por task funciona;
+- PR mergeado pontua uma vez;
+- task verificada pontua uma vez;
+- webhook duplicado não altera score indevidamente.
+
+## Gate
+
+Fórmula e testes documentados antes de ranking global.
+
+---
+
+# 20. ETAPA 14 — Top Contributors geral
+
+## Objetivo
+
+Criar ranking geral de contribuição comprovada na plataforma.
+
+## Backend — ALTERAR
+
+```text
+src/services/rankings.js
+src/controllers/rankings.js
+src/routes/routes.js
+```
+
+## Endpoint NOVO
+
+```text
+GET /rankings/contributors
+```
+
+Suportar:
+
+```text
+?limit=10
+```
+
+Opcional depois:
+
+```text
+&period=month
+&period=year
+```
+
+## Regra
+
+Agregar somente evidências registradas em projetos MontesSquad.
+
+Nunca usar “total de commits públicos do perfil GitHub” como pontuação.
+
+## Frontend
+
+Reutilizar componente com escopo global.
+
+Exibir explicação curta da fórmula ou link/modal “Como funciona o ranking?”.
+
+## Testes
+
+- agrega projetos corretamente;
+- usuário aparece uma vez;
+- score = soma das contribuições elegíveis;
+- cap por task preservado.
+
+## Gate
+
+Rankings locais e globais precisam produzir números reproduzíveis pelo backend.
+
+---
+
+# 21. ETAPA 15 — Notificações e timeline técnica
+
+## Objetivo
+
+Dar transparência sem gerar spam.
+
+## Backend — ALTERAR
+
+```text
+src/controllers/notificacoes.js
+src/services/githubEvents.js
+```
+
+## Eventos
+
+### Push
+
+Não notificar por commit individual por padrão.
+
+Apenas atualizar atividade.
+
+### PR aberto
+
+Notificar owner e/ou responsável pela revisão conforme regra disponível:
+
+```text
+João abriu o PR #52 para “Criar API de Login”.
+```
+
+### PR fechado sem merge
+
+```text
+PR #52 foi fechado sem merge. A tarefa voltou para Em progresso.
+```
+
+### Merge
+
+```text
+PR #52 foi mergeado. Tarefa concluída e contribuição verificada.
+```
+
+## Timeline
+
+Se a UI comportar, `GithubTaskActivity` pode apresentar:
+
+```text
+09:02 tarefa assumida
+09:05 branch vinculada
+10:14 commit a92f830
+10:45 commit b22ca11
+11:02 PR #52 aberto
+12:25 PR mergeado
+12:25 tarefa concluída
+```
+
+Não criar uma tabela de timeline separada no MVP se dados puderem ser derivados das tabelas atuais de forma eficiente.
+
+## Testes
+
+Garantir que merge duplicado não gere notificação duplicada se houver mecanismo de idempotência aplicável.
+
+---
+
+# 22. ETAPA 16 — Segurança e autorização completa
+
+## Objetivo
+
+Revisar toda superfície GitHub antes da entrega.
+
+## Arquivos a REVISAR
+
+```text
+index.js
+src/routes/routes.js
+src/middlewares/auth.js
+src/controllers/github.js
+src/services/githubApp.js
+src/services/githubWebhook.js
+src/services/githubEvents.js
+src/controllers/rankings.js
+```
+
+## Checklist obrigatório
+
+- webhook usa assinatura, não JWT;
+- endpoints de configuração GitHub usam JWT;
+- somente owner conecta/desconecta repository;
+- membro/dono acessa atividade privada do projeto;
+- visitante não acessa commits privados;
+- installation token nunca vai ao frontend;
+- private key nunca vai ao frontend;
+- secrets nunca aparecem em logs;
+- queries são parametrizadas;
+- mensagens de commit são tratadas como texto, nunca HTML confiável;
+- OAuth usa state quando aplicável;
+- rate limit avaliado para rotas sensíveis;
+- payloads têm validação de tipos/tamanho.
+
+## Testes negativos
+
+Criar casos 401/403/404/409 relevantes.
+
+---
+
+# 23. ETAPA 17 — Integração frontend completa
+
+## Objetivo
+
+Unificar experiência sem quebrar o Kanban existente.
+
+## Arquivos a revisar/alterar
+
+```text
+src/components/projects/KanbanBoard.tsx
+src/components/projects/GithubProjectPanel.tsx
+src/components/projects/GithubTaskActivity.tsx
+src/components/projects/GithubTaskBadge.tsx
+src/components/projects/TopCommitters.tsx
+src/components/projects/TopContributors.tsx
+src/services/projectDetail.ts
+src/services/github.ts
+src/services/rankings.ts
+```
+
+## Estados UX obrigatórios
+
+### Projeto sem GitHub
+
+Kanban funciona normalmente.
+
+### Projeto com GitHub e task sem responsável
+
+Mostrar:
+
+```text
+[ Assumir tarefa ]
+```
+
+### Task assumida
+
+Mostrar responsável e branch.
+
+### Sem commits
+
+```text
+Nenhuma atividade GitHub registrada ainda.
+```
+
+### Com commits
+
+Mostrar quantidade e último commit.
+
+### PR aberto
+
+Badge `Em revisão` + link PR.
+
+### Merge
+
+Badge `Verificado pelo GitHub`.
+
+### Falha de integração
+
+Mostrar erro acionável sem derrubar página inteira.
+
+## Mobile
+
+Garantir que 4 colunas e modal continuem utilizáveis em tela pequena.
+
+---
+
+# 24. ETAPA 18 — Testes de regressão e aceite ponta a ponta
+
+## Objetivo
+
+Provar que integração nova não quebrou funcionalidades atuais.
+
+## Backend
+
+Executar toda suíte.
+
+Adicionar cenários ponta a ponta com mocks do GitHub:
+
+### Cenário A — projeto sem GitHub
+
+1. criar projeto;
+2. criar task;
+3. atribuir/mover;
+4. concluir manualmente conforme regra existente.
+
+Tudo deve continuar funcionando.
+
+### Cenário B — projeto conectado
+
+1. criar projeto;
+2. conectar repository;
+3. criar task;
+4. assumir task;
+5. confirmar branch gerada;
+6. enviar webhook push;
+7. verificar commit;
+8. enviar PR opened;
+9. verificar review;
+10. enviar PR merged;
+11. verificar done;
+12. verificar XP uma vez;
+13. verificar Top Committers;
+14. verificar Top Contributors.
+
+### Cenário C — duplicidade
+
+Reenviar todos os webhooks.
+
+Nenhuma métrica, XP, commit ou PR deve duplicar indevidamente.
+
+### Cenário D — concorrência ao assumir
+
+Dois usuários tentam assumir a mesma task.
+
+Apenas um recebe sucesso.
+
+## Frontend
+
+Executar:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+## Gate final
+
+Nenhuma etapa é considerada entregue sem regressão final concluída.
+
+---
+
+# 25. Endpoints finais esperados
+
+## GitHub
+
+```text
+POST   /github/webhook
+GET    /github/me
+GET    /github/connect
+GET    /github/callback
+DELETE /github/disconnect
 GET    /github/installations/:installationId/repositories
+```
+
+## Projeto GitHub
+
+```text
 POST   /projetos/:projetoId/github/repository
-DELETE /projetos/:projetoId/github/repository
 GET    /projetos/:projetoId/github/status
+DELETE /projetos/:projetoId/github/repository
 ```
 
 ## Task
@@ -1155,882 +2087,275 @@ GET  /projetos/:projetoId/tarefas/:tarefaId/commits
 GET  /projetos/:projetoId/tarefas/:tarefaId/pull-request
 ```
 
+O endpoint de branch manual pode ser omitido se a branch for sempre gerada pelo backend e não houver edição no MVP.
+
 ## Rankings
 
 ```text
-GET /projetos/:projetoId/ranking/committers
-GET /projetos/:projetoId/ranking/contributors
-GET /ranking/committers
-GET /ranking/contributors
+GET /projetos/:projetoId/rankings/committers
+GET /projetos/:projetoId/rankings/contributors
+GET /rankings/committers
+GET /rankings/contributors
 ```
 
 ---
 
-# 34. Atualização da interface
-
-Webhook atualiza backend; frontend consulta MontesSquad API.
-
-MVP:
-
-```ts
-refetchInterval: 15000
-```
-
-Somente enquanto página relevante estiver aberta.
-
-Não fazer polling direto na API GitHub.
-
-Fluxo:
+# 26. Componentes finais esperados no frontend
 
 ```text
-GitHub -> Webhook -> MontesSquad API -> MySQL
-Frontend -> MontesSquad API
+GithubProjectPanel
 ```
 
-Futuro: SSE/WebSocket.
+Responsável por conexão e status do repository.
+
+```text
+GithubTaskBadge
+```
+
+Resumo pequeno no card.
+
+```text
+GithubTaskActivity
+```
+
+Detalhe branch/commits/PR no modal.
+
+```text
+TopCommitters
+```
+
+Ranking bruto de commits válidos.
+
+```text
+TopContributors
+```
+
+Ranking ponderado de contribuição.
 
 ---
 
-# 35. Top Committers do projeto
+# 27. Regras de negócio consolidadas
 
-## Objetivo
-
-Mostrar atividade técnica objetiva dentro de cada projeto.
-
-Criar bloco:
-
-```text
-TOP COMMITTERS
-
-1. João Silva      32 commits
-2. Maria Souza     24 commits
-3. Pedro Lima      17 commits
-```
-
-Contar somente commits:
-
-- recebidos pela integração;
-- pertencentes ao repository conectado ao projeto;
-- associados a tasks reconhecidas do projeto;
-- não duplicados;
-- com autor GitHub associado quando possível.
-
-Não contar qualquer commit aleatório do repositório para evitar distorção.
-
-## Período
-
-Permitir no futuro:
-
-```text
-7 dias | 30 dias | Projeto inteiro
-```
-
-MVP pode usar projeto inteiro.
-
-## Query conceitual
-
-```sql
-SELECT
-  u.id,
-  u.nome,
-  u.avatar_url,
-  COUNT(gc.id) AS total_commits
-FROM github_commits gc
-JOIN usuarios u ON u.github_user_id = gc.author_github_id
-WHERE gc.projeto_id = ?
-GROUP BY u.id, u.nome, u.avatar_url
-ORDER BY total_commits DESC
-LIMIT 10;
-```
+1. GitHub é opcional na criação do projeto.
+2. Projeto sem GitHub continua funcionando.
+3. Tasks pertencem ao MontesSquad.
+4. Task pode nascer sem responsável.
+5. Membro pode assumir uma task livre.
+6. Apenas um usuário assume a task.
+7. Branch segue padrão por ID da task.
+8. Commit registra atividade, não conclusão.
+9. PR aberto leva task para `review`.
+10. PR fechado sem merge não conclui.
+11. PR mergeado conclui automaticamente.
+12. XP é concedido no backend e é idempotente.
+13. Top Committers conta somente commits vinculados ao MontesSquad.
+14. Top Contributors é o ranking principal.
+15. Microcommits não podem dominar pontuação.
+16. Ranking global nunca lê todos os commits públicos de uma conta como se fossem contribuições MontesSquad.
+17. Histórico GitHub não deve ser apagado quando responsável muda.
+18. Username GitHub pode mudar; `github_user_id` é referência estável.
 
 ---
 
-# 36. Top Committers geral
+# 28. Casos de borda obrigatórios
 
-## Objetivo
-
-Mostrar atividade GitHub acumulada dentro de todo o ecossistema MontesSquad.
-
-Exemplo:
+Implementar/testar:
 
 ```text
-TOP COMMITTERS — MONTESQUAD
-
-1. João Silva       186 commits
-2. Maria Souza      143 commits
-3. Ana Oliveira     119 commits
+push em branch desconhecida
+commit duplicado
+webhook duplicado
+PR sem task correspondente
+PR fechado sem merge
+PR reaberto
+force push
+squash merge
+rebase merge
+repository removido da instalação
+usuário muda username
+usuário desconecta GitHub
+task muda de responsável
+dois usuários tentam assumir task
+repository desconectado com tasks antigas
+projeto sem GitHub
 ```
 
-Contar apenas commits vinculados a tasks de projetos MontesSquad.
-
-Não contar o histórico inteiro da conta GitHub do usuário.
-
-Isso mantém o ranking relacionado à participação real na plataforma.
+Squash/rebase não alteram regra de conclusão: confiar em `pull_request.merged === true`.
 
 ---
 
-# 37. Top Contributors — ranking principal recomendado
+# 29. Ordem obrigatória de implementação
 
-Quantidade de commits sozinha NÃO mede qualidade ou contribuição.
-
-Para evitar usuários criando dez commits mínimos para subir no ranking, manter `Top Committers` como estatística transparente, mas criar **Top Contributors** como ranking principal da plataforma.
-
-Exemplo:
+Executar estritamente nesta ordem:
 
 ```text
-TOP CONTRIBUTORS
-
-1. João Silva       1.480 pts
-   6 tasks verificadas · 5 PRs mergeados · 32 commits
-
-2. Maria Souza      1.260 pts
-   5 tasks verificadas · 4 PRs mergeados · 24 commits
+ETAPA 0  Baseline
+ETAPA 1  Banco/migration
+ETAPA 2  Contrato review
+ETAPA 3  GitHub App service
+ETAPA 4  Webhook seguro
+ETAPA 5  Repository no projeto
+ETAPA 6  Identidade GitHub do usuário
+ETAPA 7  Assumir task + branch
+ETAPA 8  Push/commits
+ETAPA 9  Pull Request
+ETAPA 10 XP backend
+ETAPA 11 Top Committers projeto
+ETAPA 12 Top Committers geral
+ETAPA 13 Top Contributors projeto
+ETAPA 14 Top Contributors geral
+ETAPA 15 Notificações/timeline
+ETAPA 16 Segurança completa
+ETAPA 17 Integração frontend
+ETAPA 18 Regressão/E2E
 ```
 
-## Fórmula inicial sugerida
+**Não pular etapa.**
 
-A fórmula deve ser configurável no backend.
-
-Exemplo inicial:
-
-```text
-commit válido associado a task        = 2 pontos
-PR aberto associado a task            = 10 pontos
-PR mergeado                            = 40 pontos
-task concluída via github_merge        = 50 pontos
-review de PR válido (futuro)           = 15 pontos
-```
-
-Adicionar limite de influência de commits por task.
-
-Exemplo:
-
-```text
-máximo de 20 pontos de commits por task
-```
-
-Assim 100 microcommits não geram vantagem infinita.
-
-## Regra importante
-
-Não usar linhas adicionadas/removidas como indicador de produtividade.
-
-Não premiar tamanho de commit.
-
-Não penalizar squash merge.
+Se uma etapa não exigir alteração porque já foi satisfeita por implementação anterior, isso deve ser comprovado pelo gate e documentado antes de avançar.
 
 ---
 
-# 38. Top Contributors do projeto
+# 30. Formato obrigatório do relatório ao terminar cada etapa
 
-Dentro de cada projeto mostrar:
+O agente deve responder internamente/na execução com:
 
 ```text
-CONTRIBUIDORES DO PROJETO
+ETAPA X CONCLUÍDA
 
-1. João Silva
-   820 pts
-   4 tasks verificadas
-   4 PRs mergeados
-   32 commits
+Arquivos criados:
+- ...
 
-2. Maria Souza
-   615 pts
-   3 tasks verificadas
-   3 PRs mergeados
-   24 commits
+Arquivos alterados:
+- ...
+
+Banco:
+- ...
+
+Endpoints:
+- ...
+
+Testes executados:
+- ...
+
+Resultado:
+- ...
+
+Segurança revisada:
+- ...
+
+Pendências:
+- nenhuma
+
+GATE:
+[x] implementação
+[x] migration
+[x] testes
+[x] lint
+[x] regressão aplicável
+[x] segurança
+[x] contratos
+[x] critérios de aceite
 ```
 
-Esse deve ser o ranking visual prioritário.
+Se existir pendência:
 
-`Top Committers` pode aparecer como aba/secundário.
+```text
+ETAPA X AINDA NÃO CONCLUÍDA
+```
+
+E não avançar.
 
 ---
 
-# 39. Top Contributors geral
-
-Página global:
+# 31. Prompt mestre para agente de implementação
 
 ```text
-Ranking
+Você é o engenheiro principal responsável por implementar a integração GitHub do MontesSquad.
 
-Top Contributors | Top Committers
-```
-
-Top Contributors geral soma somente contribuições verificadas dentro de projetos MontesSquad.
-
-Filtros futuros:
-
-```text
-Geral
-Últimos 30 dias
-Últimos 7 dias
-Tecnologia
-```
-
-Não implementar filtros complexos antes do ranking base estar correto.
-
----
-
-# 40. Métricas de perfil
-
-Perfil poderá exibir:
-
-```text
-Projetos participados
-Tasks concluídas
-Tasks verificadas pelo GitHub
-Commits vinculados
-PRs abertos
-PRs mergeados
-Pontuação de contribuição
-Posição global
-```
-
-Exemplo:
-
-```text
-Contribuições verificadas
-
-47 tasks
-39 PRs mergeados
-184 commits vinculados
-#12 no ranking global
-```
-
----
-
-# 41. Segurança do ranking
-
-Regras:
-
-1. commit duplicado nunca conta duas vezes;
-2. commit não associado a task não entra no ranking principal;
-3. webhook duplicado não altera ranking;
-4. usuário sem vínculo GitHub pode ter commit armazenado, mas associação ao perfil deve exigir correspondência confiável;
-5. reprocessamento deve ser idempotente;
-6. excluir task não deve permitir manipulação silenciosa de histórico sem decisão explícita de produto;
-7. commits de bots devem ser identificáveis e, por padrão, excluídos dos rankings humanos;
-8. owner não pode editar manualmente contagem de commits;
-9. ranking deve ser calculado no backend;
-10. frontend apenas exibe o resultado.
-
----
-
-# 42. Notificações
-
-Push:
-
-- não notificar a cada commit por padrão;
-- apenas atualizar atividade.
-
-PR aberto:
-
-```text
-João abriu o PR #52 para “Criar API de Login”.
-```
-
-PR fechado sem merge:
-
-```text
-O PR #52 foi fechado sem merge. A tarefa voltou para Em progresso.
-```
-
-Merge:
-
-```text
-Seu PR #52 foi mergeado.
-A tarefa foi concluída automaticamente.
-+150 XP
-```
-
-Opcional futuramente:
-
-```text
-Você entrou no Top 3 de contribuidores deste projeto.
-```
-
-Evitar notificações excessivas de ranking.
-
----
-
-# 43. Casos de borda obrigatórios
-
-Testar:
-
-- push em branch sem task;
-- duas tasks tentando usar mesma branch;
-- commit duplicado;
-- delivery duplicado;
-- PR fechado sem merge;
-- PR reaberto;
-- repository removido da GitHub App;
-- usuário muda username;
-- responsável da task muda;
-- branch renomeada;
-- force push;
-- squash merge;
-- rebase merge;
-- commits de outro colaborador na branch;
-- bot fazendo commit;
-- usuário desconecta GitHub;
-- projeto conecta GitHub depois de já possuir tasks;
-- projeto funciona completamente sem GitHub;
-- duas pessoas tentam assumir a mesma tarefa simultaneamente;
-- merge chega duas vezes;
-- ranking reprocessado não duplica pontuação.
-
----
-
-# 44. Tasks antigas ao conectar GitHub
-
-Quando projeto já possui tarefas e depois recebe integração:
-
-```text
-Integração GitHub ativada.
-
-Deseja vincular tarefas existentes?
-```
-
-Por task:
-
-```text
-Criar banco
-[ Vincular branch ]
-
-Tela de Login
-[ Vincular branch ]
-```
-
-Não obrigar vinculação.
-
-Tasks antigas podem continuar manuais.
-
----
-
-# 45. Testes backend
-
-Arquivos sugeridos:
-
-```text
-test/github.webhook.test.js
-test/github.push.test.js
-test/github.pullRequest.test.js
-test/github.integration.test.js
-test/github.rankings.test.js
-test/tarefas.assumir.test.js
-```
-
-Cobertura mínima:
-
-## Webhook
-
-- assinatura válida;
-- assinatura inválida;
-- sem assinatura;
-- delivery duplicado.
-
-## Push
-
-- branch conhecida;
-- desconhecida;
-- commit duplicado;
-- autoria;
-- commit aparece no ranking uma vez.
-
-## PR
-
-- opened -> review;
-- synchronize;
-- closed sem merge -> não done;
-- merged -> done;
-- XP exatamente uma vez;
-- ranking exatamente uma vez.
-
-## Tarefa assumível
-
-- membro assume;
-- visitante não assume;
-- duas requisições concorrentes não conseguem dois responsáveis;
-- task vai para doing.
-
-## Rankings
-
-- project committers correto;
-- global committers correto;
-- contributors correto;
-- microcommits respeitam cap;
-- bots não entram por padrão;
-- commits sem task não contam.
-
----
-
-# 46. Testes frontend
-
-Testar:
-
-- quarta coluna Review;
-- botão Assumir tarefa;
-- estado sem responsável;
-- instrução de branch;
-- card GitHub;
-- commits;
-- PR aberto;
-- PR mergeado;
-- badge Verificado pelo GitHub;
-- aba GitHub do projeto;
-- projeto sem GitHub;
-- conectar depois;
-- Top Committers projeto;
-- Top Contributors projeto;
-- ranking global;
-- loading;
-- empty state;
-- erro;
-- mobile.
-
----
-
-# 47. Observabilidade
-
-Logs:
-
-```text
-[GITHUB_WEBHOOK]
-[GITHUB_PUSH]
-[GITHUB_PR]
-[GITHUB_INSTALLATION]
-[GITHUB_RANKING]
-[TASK_CLAIM]
-```
-
-Campos úteis:
-
-```text
-deliveryId
-event
-repositoryId
-projectId
-taskId
-userId
-prNumber
-commitSha
-processingTimeMs
-```
-
-Nunca logar tokens ou secrets.
-
----
-
-# 48. Ordem obrigatória de implementação
-
-Esta é a sequência oficial.
-
-## ETAPA 0 — Baseline
-
-Objetivo: garantir que os dois projetos estão saudáveis antes de alterar.
-
-Subetapas:
-
-1. ler documentação;
-2. executar testes atuais;
-3. executar lint;
-4. registrar falhas preexistentes;
-5. mapear contratos atuais;
-6. não corrigir problemas alheios sem necessidade.
-
-Gate: baseline conhecido.
-
-## ETAPA 1 — Banco e migration
-
-1. campos GitHub usuários;
-2. campos GitHub projetos;
-3. campos GitHub tarefas;
-4. `review`;
-5. github_commits;
-6. github_pull_requests;
-7. deliveries;
-8. eventos XP;
-9. índices;
-10. migration idempotente;
-11. testes migration.
-
-Gate obrigatório antes da etapa 2.
-
-## ETAPA 2 — Contratos backend/frontend
-
-1. tipos Kanban;
-2. DTOs;
-3. serializers;
-4. compatibilidade tasks antigas;
-5. quarta coluna sem automação ainda.
-
-Gate obrigatório.
-
-## ETAPA 3 — GitHub App base
-
-1. variáveis;
-2. Octokit;
-3. serviço central;
-4. installation client;
-5. tratamento de configuração ausente.
-
-Gate obrigatório.
-
-## ETAPA 4 — Webhook seguro
-
-1. raw body;
-2. endpoint;
-3. assinatura HMAC;
-4. timing-safe compare;
-5. delivery ID;
-6. tabela deliveries;
-7. testes.
-
-Gate obrigatório.
-
-## ETAPA 5 — Conectar GitHub ao projeto
-
-1. aba GitHub;
-2. instalar app;
-3. listar repositories;
-4. selecionar repository;
-5. validar repository no backend;
-6. salvar IDs;
-7. desconectar;
-8. projeto sem GitHub continua normal.
-
-Gate obrigatório.
-
-## ETAPA 6 — Conta GitHub do usuário
-
-1. conectar identidade;
-2. persistir GitHub user ID;
-3. exibir estado;
-4. desconectar;
-5. autoria.
-
-Gate obrigatório.
-
-## ETAPA 7 — Tarefas assumíveis
-
-1. endpoint assumir;
-2. concorrência;
-3. UI;
-4. mover todo -> doing;
-5. gerar branch sugerida;
-6. exibir comandos.
-
-Gate obrigatório.
-
-## ETAPA 8 — Push/commits
-
-1. processar push;
-2. identificar branch;
-3. localizar task;
-4. salvar commits;
-5. idempotência SHA;
-6. autoria;
-7. API listar commits;
-8. card/modal;
-9. testes.
-
-Gate obrigatório.
-
-## ETAPA 9 — Pull Requests
-
-1. opened;
-2. reopened;
-3. synchronize;
-4. closed sem merge;
-5. merged;
-6. review;
-7. dados PR na UI;
-8. testes.
-
-Gate obrigatório.
-
-## ETAPA 10 — XP e conclusão verificada
-
-1. retirar autoridade do frontend;
-2. transaction;
-3. eventos XP;
-4. selo verificado;
-5. manual override;
-6. testes de duplicidade.
-
-Gate obrigatório.
-
-## ETAPA 11 — Top Committers projeto
-
-1. query;
-2. endpoint;
-3. testes;
-4. componente;
-5. empty state.
-
-Gate obrigatório.
-
-## ETAPA 12 — Top Committers geral
-
-1. query global;
-2. endpoint;
-3. paginação/limit;
-4. UI;
-5. testes.
-
-Gate obrigatório.
-
-## ETAPA 13 — Top Contributors projeto
-
-1. fórmula backend;
-2. cap por task;
-3. query/agregação;
-4. endpoint;
-5. UI;
-6. testes antimanipulação.
-
-Gate obrigatório.
-
-## ETAPA 14 — Top Contributors geral
-
-1. agregação global;
-2. endpoint;
-3. UI ranking;
-4. perfil;
-5. testes.
-
-Gate obrigatório.
-
-## ETAPA 15 — Integração e regressão final
-
-1. login;
-2. cadastro;
-3. projetos;
-4. candidaturas;
-5. membros;
-6. mural;
-7. Kanban sem GitHub;
-8. Kanban com GitHub;
-9. tarefas antigas;
-10. rankings;
-11. segurança;
-12. testes completos;
-13. lint/build.
-
-Somente depois considerar a implementação concluída.
-
----
-
-# 49. Critérios de aceite principais
-
-## Projeto sem GitHub
-
-- cria normalmente;
-- Kanban funciona;
-- nenhuma tela fica bloqueada.
-
-## Conectar depois
-
-- owner conecta repositório posteriormente;
-- tasks antigas continuam válidas.
-
-## Assumir task
-
-- membro assume;
-- vira responsável;
-- vai para doing;
-- recebe branch sugerida se GitHub conectado.
-
-## Commit
-
-- aparece automaticamente;
-- aparece apenas uma vez;
-- não conclui task.
-
-## PR aberto
-
-- task vai para review;
-- número e link aparecem.
-
-## PR fechado sem merge
-
-- task não conclui.
-
-## Merge
-
-- task vai para done;
-- selo GitHub aparece;
-- XP uma vez;
-- ranking atualizado uma vez.
-
-## Top Committers
-
-- conta somente commits vinculados às tasks MontesSquad.
-
-## Top Contributors
-
-- prioriza entregas verificadas;
-- não pode ser facilmente manipulado por microcommits.
-
----
-
-# 50. Prompt mestre obrigatório para agente/subagentes
-
-```text
-Você é o engenheiro responsável pela integração GitHub do MontesSquad.
-
-REPOSITÓRIOS:
+Repositórios:
 Frontend: MatheusVRibeiro/squad-hub
 Backend: MatheusVRibeiro/MontesSquad-API
 
-Leia integralmente backend/docs/IMPLEMENTACAO_GITHUB_KANBAN.md antes de alterar qualquer arquivo.
+Leia integralmente docs/IMPLEMENTACAO_GITHUB_KANBAN.md antes de alterar código.
 
-REGRA ABSOLUTA DE EXECUÇÃO:
-Trabalhe UMA ETAPA POR VEZ seguindo exatamente a seção "Ordem obrigatória de implementação".
+Este documento é a especificação operacional e a fonte de verdade para a implementação.
 
-É PROIBIDO iniciar a implementação da próxima etapa enquanto a atual não estiver completamente finalizada.
+REGRA ABSOLUTA:
+Implemente exatamente UMA etapa por vez, seguindo a ordem definida no documento. Não comece a etapa seguinte até que TODOS os itens do gate da etapa atual estejam concluídos.
 
-Uma etapa só termina após:
-- código completo;
-- migrations aplicáveis concluídas;
-- testes passando;
-- lint passando quando disponível;
-- segurança revisada;
-- critérios de aceite comprovados;
-- regressões da área verificadas;
-- arquivos alterados listados;
-- nenhuma pendência bloqueante.
+Se estiver aguardando subagentes da etapa atual, use o tempo para analisar e planejar a etapa seguinte, mapear arquivos, dependências, riscos e divisão de trabalho. NÃO altere arquivos da etapa seguinte enquanto o gate atual não estiver fechado.
 
-Se usar subagentes, distribua tarefas independentes da ETAPA ATUAL. Aguarde e integre todos os resultados necessários antes de fechar a etapa.
+Antes de cada etapa:
+1. releia a seção correspondente;
+2. confirme arquivos a criar;
+3. confirme arquivos a alterar;
+4. confirme migration;
+5. confirme endpoints/funções;
+6. confirme testes obrigatórios.
 
-Se estiver aguardando subagentes, você PODE analisar a próxima etapa para melhorar a execução futura: ler arquivos, mapear dependências, identificar riscos, planejar distribuição e preparar checklists. Porém NÃO pode implementar, editar arquivos ou commitar mudanças da próxima etapa antes do gate da etapa atual estar completamente aprovado.
+Durante a etapa:
+- preserve arquitetura existente;
+- não introduza ORM;
+- mantenha MySQL;
+- use queries parametrizadas;
+- não quebre login, projetos, candidaturas, membros, mural, reputação ou Kanban;
+- nunca coloque GitHub secret/private key/token no frontend;
+- não confie em IDs GitHub enviados pelo browser sem validar;
+- mantenha compatibilidade com projetos sem GitHub;
+- commit nunca conclui task;
+- PR mergeado é a evidência de conclusão automática.
 
-OBJETIVO DE PRODUTO:
-O projeto pode ser criado sem GitHub. GitHub é opcional e pode ser conectado depois.
+Ao terminar cada etapa:
+- rode testes;
+- rode lint/build quando aplicável;
+- revise segurança;
+- revise regressões;
+- liste arquivos criados/alterados;
+- complete o gate.
 
-O fluxo desejado é:
-criar projeto -> montar squad -> criar tasks -> membro assume task -> branch por task -> commits aparecem automaticamente -> PR aberto move para review -> PR mergeado conclui -> XP e evidência verificada -> rankings atualizados.
+Se qualquer item falhar, corrija antes de avançar.
 
-REGRAS GITHUB:
-- usar GitHub App;
-- nunca armazenar PAT pessoal permanente como arquitetura final;
-- validar X-Hub-Signature-256;
-- usar X-GitHub-Delivery;
-- preservar raw body;
-- repository ID e GitHub user ID são referências prioritárias;
-- commit não conclui task;
-- merge de PR conclui task;
-- webhook duplicado nunca duplica commit, XP ou pontuação;
-- tokens e private key nunca chegam ao frontend.
+Ranking:
+- Top Committers = volume de commits válidos vinculados a tasks MontesSquad;
+- Top Contributors = ranking principal ponderando commits, PRs mergeados e tasks verificadas;
+- aplicar cap de pontos de commits por task para reduzir gaming;
+- ranking global deve usar somente evidências registradas no MontesSquad.
 
-TAREFAS:
-- tasks são criadas no MontesSquad;
-- task pode ser criada sem responsável;
-- membros podem usar "Assumir tarefa";
-- ao assumir, definir responsável atomicamente;
-- se estava todo, mover para doing;
-- gerar branch sugerida task/{id}-{slug};
-- no MVP usuário cria branch localmente;
-- exibir comandos Git para facilitar onboarding.
-
-KANBAN:
-todo -> doing -> review -> done.
-PR opened/reopened -> review.
-PR closed sem merge -> não concluir; MVP pode voltar para doing.
-PR merged -> done.
-
-RANKINGS:
-Implementar Top Committers por projeto e geral, contando apenas commits válidos vinculados a tasks MontesSquad.
-Também implementar Top Contributors por projeto e geral como ranking principal.
-Não usar commits brutos como medida única de qualidade.
-Pontuação deve dar maior peso a PR mergeado e task verificada e limitar o peso de quantidade de commits por task.
-Não contar bots por padrão.
-Não contar commits fora de tasks reconhecidas.
-
-COMPATIBILIDADE:
-- não quebrar login;
-- não quebrar projetos;
-- não quebrar candidaturas;
-- não quebrar membros;
-- não quebrar mural;
-- não quebrar Kanban sem GitHub;
-- não obrigar projetos antigos a usar GitHub;
-- não substituir MySQL;
-- não introduzir ORM;
-- manter queries parametrizadas.
-
-NO FINAL DE CADA ETAPA, apresente o gate:
-[ ] implementação
-[ ] migration
-[ ] testes
-[ ] lint
-[ ] segurança
-[ ] contratos
-[ ] regressão
-[ ] critérios de aceite
-[ ] arquivos alterados
-[ ] pendências
-
-Somente com todos os itens aplicáveis concluídos siga para a próxima etapa.
+CRITÉRIO FINAL:
+Projeto pode existir sem GitHub. Depois pode conectar repository. Membro assume task, recebe branch sugerida, commits aparecem automaticamente, PR leva a Em revisão, merge conclui a task, XP é concedido uma vez e rankings são atualizados corretamente.
 ```
 
 ---
 
-# 51. Evoluções após o MVP
+# 32. Definição de pronto do projeto inteiro
 
-Somente depois de todas as etapas anteriores estarem estáveis:
-
-- criar branch automaticamente;
-- criar Pull Request pelo MontesSquad;
-- GitHub Actions/checks;
-- exigir CI verde;
-- Issues sincronizadas;
-- code review contabilizado no ranking;
-- timeline técnica completa;
-- badges de contribuição;
-- filtros temporais de ranking;
-- ranking por tecnologia;
-- múltiplos repositórios por projeto;
-- portfólio público verificável.
-
----
-
-# 52. Resultado final esperado
-
-Ao final, um projeto deve poder funcionar em dois modos.
-
-## Modo tradicional
+A integração somente estará pronta quando for possível demonstrar, do início ao fim:
 
 ```text
-Projeto sem GitHub
-A fazer -> Em progresso -> Concluído
+1. Usuário cria projeto sem GitHub.
+2. Projeto funciona normalmente.
+3. Owner conecta repository depois.
+4. Usuário conecta identidade GitHub.
+5. Owner cria task sem responsável.
+6. Membro assume task.
+7. Sistema gera branch task/{id}-{slug}.
+8. Desenvolvedor faz push.
+9. Commit aparece automaticamente na task.
+10. Commit NÃO conclui task.
+11. Desenvolvedor abre PR.
+12. Task vai automaticamente para Em revisão.
+13. PR é mergeado.
+14. Task vai automaticamente para Concluído.
+15. Task exibe Verificado pelo GitHub.
+16. XP é concedido exatamente uma vez.
+17. Top Committers do projeto atualiza.
+18. Top Committers global atualiza.
+19. Top Contributors do projeto atualiza.
+20. Top Contributors global atualiza.
+21. Webhooks repetidos não duplicam nada.
+22. Projetos sem GitHub continuam funcionando.
+23. Testes, lint e build passam.
 ```
 
-## Modo integrado
-
-```text
-Projeto
-  ↓
-GitHub conectado
-  ↓
-Task criada
-  ↓
-Membro assume
-  ↓
-Branch task/ID-slug
-  ↓
-Commits registrados
-  ↓
-PR aberto
-  ↓
-Em revisão
-  ↓
-Merge
-  ↓
-Concluído e verificado
-  ↓
-XP + métricas + rankings
-```
-
-O diferencial do MontesSquad será unir gestão colaborativa, descoberta de projetos, execução de tarefas e evidências técnicas reais, sem depender de autodeclaração do usuário.
+Se qualquer um desses comportamentos não estiver demonstrável, a implementação ainda não está concluída.
