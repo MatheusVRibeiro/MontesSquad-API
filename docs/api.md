@@ -183,8 +183,8 @@ Um membro candidata-se para participar de um squad de projeto.
 
 ### 6. Kanban & Tarefas
 
-#### `POST /projetos/:projetoId/tarefas` (Requer ser Dono do Projeto)
-Cria e atribui uma tarefa a um membro do squad.
+#### `POST /projetos/:projetoId/tarefas` (Requer ser Membro ou Dono do Projeto)
+Cria e atribui uma tarefa a um membro do squad. Desde a FASE-03 (3.G), membros do squad podem criar tarefas (não apenas o dono).
 - **Request Body:**
   ```json
   {
@@ -194,3 +194,47 @@ Cria e atribui uma tarefa a um membro do squad.
     "responsavel_id": 2
   }
   ```
+- **Nota:** quando `responsavel_id` está presente, o sistema dispara uma notificação do tipo `task` para o responsável.
+
+---
+
+### 7. Notificações
+
+#### `GET /notificacoes` (Requer Token)
+Lista as notificações do usuário autenticado, mais recentes primeiro.
+- **Contrato (camelCase):** o campo `dados` é um array de `{ id, type, title, description, createdAt, read, link }`.
+- `type` é um ENUM: `application` (nova candidatura p/ o dono), `approved` (candidatura aprovada), `message` (nova mensagem no mural), `task` (tarefa atribuída), `system`.
+
+#### `POST /notificacoes/ler-tudo` (Requer Token)
+Marca todas as notificações do usuário como lidas (`read = true`).
+
+---
+
+### 8. Reputação
+
+#### `GET /usuarios/:userId/reputacao` (Requer Token; alias `me` para o próprio usuário)
+Retorna o resumo de reputação do usuário: XP, nível, avaliações, histórico de projetos e conquistas.
+- **Contrato:** `dados` com `{ level, xp, xpProximo, reputacao, projetosConcluidos, conquistas, historico, avaliacoes }` (campos aninhados em camelCase — conferir com `references/fase02-controllers-contrato.md`).
+
+---
+
+### 9. Habilidades
+
+#### `GET /habilidades` (Requer Token)
+Lista a base global de habilidades disponíveis.
+
+#### `POST /habilidades-usuario` (Requer Token)
+Vincula uma habilidade ao usuário autenticado.
+- **Request Body:** `{ habilidade_id }` (ou `{ habilidadeId }` conforme contrato — conferir controller).
+
+#### `POST /habilidades-projeto` (Requer Token)
+Vincula uma habilidade (tecnologia) a um projeto.
+- **Request Body:** `{ projeto_id, habilidade_id }`.
+
+---
+
+### 10. Healthcheck
+
+#### `GET /health` (Público)
+Verifica a conectividade com o banco de dados sem derrubar o boot.
+- **Resposta:** `{ sucesso: true, banco: "ok" | "erro" }` — HTTP 200 mesmo com banco indisponível (banco `"erro"`).

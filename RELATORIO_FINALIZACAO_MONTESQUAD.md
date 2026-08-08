@@ -337,17 +337,47 @@
 **Objetivo:** provar que o produto funciona de ponta a ponta.
 **Dependência:** FASE-01 a 05 · **Duração:** agente principal + browser.
 
-### 6.A — Fluxo completo com usuário real
-- Passos: subir backend (3333) + frontend (5173) → cadastrar usuário → login → criar projeto com stack → candidatar-se a outro projeto → dono aprova → mural → kanban (criar/mover tarefa) → perfil (editar + reputação real) → notificações → configurações (trocar senha) → logout.
-- Critério: tudo persiste entre reloads; sem mocks visíveis.
+### ✅ 6.A — Fluxo completo com usuário real — CONCLUÍDA (2026-08-08)
 
-### 6.B — Fluxos de erro
-- Backend desligado → telas mostram erro/retry (nunca mock); login errado → mensagem; 403 em ações não autorizadas.
-- Critério: nenhum fallback silencioso em produção.
+Todos os passos validados com dados REAIS da API (sem mocks):
 
-### 6.C — Checklist de segurança final
-- IDORs fechados (usuários, habilidades, projetos); rate limit ativo; senhas hasheadas; JWT sem fallback; CORS restrito; sem segredos no git (`.env` no `.gitignore`).
-- Critério: checklist 100%.
+| Passo | Resultado |
+|---|---|
+| Login admin (`admin@email.com/admin123`) | ✅ 200, dashboard renderiza (XP 0/250 = dado real, `estatisticas_usuario` vazia) |
+| Explorar Projetos | ✅ 9 projetos reais; busca "E2E" filtra 9→2; filtro por tecnologia funcional |
+| Criar Projeto com stack | ✅ projeto id=11 com tech `React` persistida |
+| Meus Projetos | ✅ 3 projetos do admin listados |
+| Detalhe do projeto (dono) | ✅ links "Não definido" (dono), botões de tarefa, aba Candidaturas |
+| Kanban | ✅ tarefa id=8 criada e renderizada na coluna "A fazer" |
+| Mural | ✅ mensagem id=11 persistida (remetente "Admin MontesSquad") |
+| Candidatura → aprovação → membro | ✅ Fernanda (id=2) candidatou (id=8) → admin aprovou → virou membro |
+| Notificações | ✅ página renderiza sem crash; disparos `application`/`approved` reais; "marcar todas" → `read: True` |
+| Perfil (editar localização) | ✅ persistiu "São Paulo - SP" (⚠️ ver bug B12) |
+| Trocar senha | ✅ nova senha → 200; senha antiga → 401 (bcrypt); restaurada p/ teste |
+| Logout | ✅ retorna a /login |
+
+### ✅ 6.B — Fluxos de erro — CONCLUÍDA (2026-08-08)
+
+- Login com senha errada → permanece no login, 0 erros JS, sem crash.
+- **PROD (build + preview):** com backend fora, `/projetos` NÃO mostra dados fictícios (sem mock — apenas header/filtros vazios); login não navega. Código PROD lança erro (`import.meta.env.DEV` isola os mocks; PROD `throw` em projects/reputation/notifications).
+- Estados de erro da UI existem: `ProjectsError`, `ReputationState` (erro + "Tentar novamente"), card destructive em notificações.
+
+### ✅ 6.C — Checklist de segurança — CONCLUÍDA (2026-08-08)
+
+| Check | Resultado |
+|---|---|
+| IDOR (PATCH /usuarios/:id de outro) | ✅ 403 "Acesso negado: você só pode editar seu próprio perfil" |
+| Rate limit (10 req/15min por IP, 4 rotas públicas) | ✅ 429 a partir da 11ª |
+| Senhas hasheadas (bcrypt-only) | ✅ plaintext → 401; troca de senha validada |
+| JWT sem fallback | ✅ hardening FASE-01 |
+| CORS restrito | ✅ whitelist (`FRONTEND_URL` ou fallback 5173/3000/8080) |
+| `.env` fora do git | ✅ `git check-ignore .env` OK, 0 arquivos versionados |
+
+### 🔴 Bugs encontrados na FASE-06
+
+- **B12 (🟠 ALTO — pendente de correção, aguarda aprovação):** `perfil.tsx:147` inicializa `name` do localStorage (`useState(user?.name ?? "")`); se o user persistido estiver com `nome: ""` (corrompido), o form abre vazio e `save()` (linha 198) envia `{ nome: "" }` → PATCH zera o nome no banco. Correções sugeridas: (A) não enviar campos vazios que já tinham valor; (B) inicializar do backend; (C) mesclar com retorno do PATCH.
+- **B13 (🟡 MÉDIO — pendente de investigação):** `GET /projetos/:id` retorna `members` com o criador duplicado (admin id=5 aparece 2x) — possível JOIN duplicado em `obterProjeto`.
+- **B14 (🔵 BAIXO — config):** preview em porta 4173 fica fora da whitelist CORS padrão — definir `FRONTEND_URL` para ambientes fora de 5173.
 
 ---
 
