@@ -376,7 +376,7 @@ Todos os passos validados com dados REAIS da API (sem mocks):
 ### 🔴 Bugs encontrados na FASE-06
 
 - **B12 (🟠 ALTO — pendente de correção, aguarda aprovação):** `perfil.tsx:147` inicializa `name` do localStorage (`useState(user?.name ?? "")`); se o user persistido estiver com `nome: ""` (corrompido), o form abre vazio e `save()` (linha 198) envia `{ nome: "" }` → PATCH zera o nome no banco. Correções sugeridas: (A) não enviar campos vazios que já tinham valor; (B) inicializar do backend; (C) mesclar com retorno do PATCH.
-- **B13 (🟡 MÉDIO — pendente de investigação):** `GET /projetos/:id` retorna `members` com o criador duplicado (admin id=5 aparece 2x) — possível JOIN duplicado em `obterProjeto`.
+- **B13 (🟡 MÉDIO — CORRIGIDO, commit `67726a4`):** `GET /projetos/:id` retornava `members` com o criador duplicado (Owner + membro) porque o criador passou a ser inserido em `membros_equipe` desde a FASE-03. Fix: `memberRows.filter(m => Number(m.id) !== Number(criador_id))` — 32/32 testes verdes.
 - **B14 (🔵 BAIXO — config):** preview em porta 4173 fica fora da whitelist CORS padrão — definir `FRONTEND_URL` para ambientes fora de 5173.
 
 ---
