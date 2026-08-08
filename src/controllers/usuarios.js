@@ -59,8 +59,8 @@ module.exports = {
       const senhaCriptografada = await bcrypt.hash(senha, 10);
       
       const sql = `
-        INSERT INTO usuarios (nome, email, senha, bio, localizacao, senha_definida)
-        VALUES (?, ?, ?, ?, ?, 1);
+        INSERT INTO usuarios (nome, email, senha, bio, localizacao)
+        VALUES (?, ?, ?, ?, ?);
 
       `;
 
@@ -108,8 +108,6 @@ module.exports = {
         const senhaCriptografada = await bcrypt.hash(senha, 10);
         fields.push("senha = ?");
         values.push(senhaCriptografada);
-        // Usuário definiu senha utilizável (ex.: conta criada via GitHub) → habilita desconexão do GitHub
-        fields.push("senha_definida = 1");
       }
 
       if (fields.length > 0) {

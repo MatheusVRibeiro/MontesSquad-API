@@ -222,7 +222,7 @@ module.exports = {
 
       const sql = `
         UPDATE usuarios
-        SET senha = ?, senha_definida = 1
+        SET senha = ?
         WHERE id = ?
       `;
 

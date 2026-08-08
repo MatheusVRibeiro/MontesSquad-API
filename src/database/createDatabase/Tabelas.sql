@@ -12,10 +12,6 @@ CREATE TABLE usuarios (
     github_avatar_url VARCHAR(500) NULL,
     github_connected_at DATETIME NULL,
     cadastro_origem ENUM('local','github') DEFAULT 'local' NOT NULL,
-    senha_definida TINYINT(1) DEFAULT 0 NOT NULL,
-    disponibilidade_horas_semana INT NULL,
-    objetivo_profissional VARCHAR(255) NULL,
-    perfil_completo BOOLEAN DEFAULT FALSE,
     tipo ENUM('membro', 'adm') DEFAULT 'membro' NOT NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_usuarios_github_user_id (github_user_id)
@@ -269,36 +265,4 @@ CREATE TABLE notificacoes (
     lida BOOLEAN DEFAULT FALSE,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- 16. Funções (Evolução ETAPA 4 — base de papéis para as vagas do projeto;
---      tabela base prevista na ETAPA 3 do plano de evolução do produto)
-CREATE TABLE funcoes (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nome VARCHAR(100) NOT NULL UNIQUE
-) ENGINE=InnoDB;
-
--- 17. Vagas do Projeto (Evolução ETAPA 4 — papéis/vagas necessárias no projeto)
-CREATE TABLE vagas_projeto (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    projeto_id INT NOT NULL,
-    funcao_id INT NOT NULL,
-    quantidade INT NOT NULL DEFAULT 1,
-    preenchidas INT NOT NULL DEFAULT 0,
-    descricao TEXT NULL,
-    nivel_desejado ENUM('iniciante', 'intermediario', 'avancado', 'qualquer') DEFAULT 'qualquer',
-    status ENUM('aberta', 'fechada') DEFAULT 'aberta',
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
-    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-
--- 18. Funções do Usuário (Evolução ETAPA 3 — perfil técnico completo)
-CREATE TABLE funcoes_usuario (
-    usuario_id INT NOT NULL,
-    funcao_id INT NOT NULL,
-    nivel_interesse ENUM('baixo', 'medio', 'alto') DEFAULT 'medio',
-    PRIMARY KEY (usuario_id, funcao_id),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

@@ -56,15 +56,7 @@ async function iniciarAuthGitHub(request, response, next) {
     const url = githubOAuth.buildGitHubAuthorizationUrl(state);
     return response.status(200).json({ sucesso: true, message: "URL de autorização", dados: { url, state } });
   } catch (error) {
-    // Env ausente (GITHUB_CLIENT_ID/SECRET) → 503, não 500
-    if (error && error.message && error.message.includes("env ausente")) {
-      return response.status(503).json({
-        sucesso: false,
-        message: "Login com GitHub indisponível no momento (configuração pendente). Use e-mail/senha.",
-        dados: null,
-      });
-    }
-    return next(new AppError("Erro ao iniciar GitHub Auth", 500, error));
+    return next(error);
   }
 }
 
@@ -122,8 +114,8 @@ async function callbackAuthGitHub(request, response, next) {
 
     const [insertResult] = await db.query(
       `INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url,
-         github_user_id, github_login, github_avatar_url, github_connected_at, cadastro_origem, senha_definida)
-       VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, NOW(), 'github', 0)`,
+         github_user_id, github_login, github_avatar_url, github_connected_at, cadastro_origem)
+       VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, NOW(), 'github')`,
       [nome, email, senhaHash, gh.avatar_url || null, gh.id, gh.login || null, gh.avatar_url || null]
     );
 
@@ -155,8 +147,6 @@ async function completarPerfilGitHub(request, response, next) {
     if (senha !== undefined && String(senha).length >= 6) {
       const hash = await bcrypt.hash(String(senha), 10);
       fields.push("senha = ?"); values.push(hash);
-      // Senha local definida → permite desconectar o GitHub (ETAPA 2)
-      fields.push("senha_definida = 1");
     }
 
     if (fields.length > 0) {
