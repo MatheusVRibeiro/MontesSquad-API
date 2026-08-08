@@ -313,7 +313,12 @@ module.exports = {
         // 4.1 Busca tarefas do Kanban (com subtarefas)
         const [tasks] = await db.query(
           `SELECT t.id, t.titulo AS title, t.descricao AS description, t.status, 
-                  u.nome AS assignee, t.prioridade AS priority, t.data_vencimento AS dueDate
+                  u.nome AS assignee, t.prioridade AS priority, t.data_vencimento AS dueDate,
+                  t.github_branch AS githubBranch, t.github_pr_number AS githubPrNumber,
+                  t.github_pr_url AS githubPrUrl, t.github_pr_status AS githubPrStatus,
+                  t.github_last_activity_at AS githubLastActivityAt,
+                  t.concluida_via AS completionSource, t.concluida_em AS completedAt,
+                  t.responsavel_id AS assigneeId
            FROM tarefas t
            LEFT JOIN usuarios u ON t.responsavel_id = u.id
            WHERE t.projeto_id = ?`,

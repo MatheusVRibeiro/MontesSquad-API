@@ -3,7 +3,7 @@ const AppError = require("../utils/errors");
 const { criarNotificacao } = require("./notificacoes");
 
 const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
-const STATUS_VALIDOS = ["todo", "doing", "done"];
+const STATUS_VALIDOS = ["todo", "doing", "review", "done"];
 
 module.exports = {
   async listarTarefas(request, response, next) {
@@ -126,7 +126,7 @@ module.exports = {
       if (status !== undefined && !STATUS_VALIDOS.includes(status)) {
         return response.status(400).json({
           sucesso: false,
-          message: "Status inválido (use 'todo', 'doing' ou 'done')",
+          message: "Status inválido (use 'todo', 'doing', 'review' ou 'done')",
           dados: null,
         });
       }
