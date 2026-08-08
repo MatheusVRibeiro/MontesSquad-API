@@ -130,4 +130,10 @@ router.get("/projetos/:projetoId/github/status", verificarToken, somenteMembroOu
 router.delete("/projetos/:projetoId/github/repository", verificarToken, somenteDonoDoProjeto, githubController.desconectarRepository);
 router.get("/github/installations/:installationId/repositories", verificarToken, githubController.listarRepositoriesInstalacao);
 
+// Identidade GitHub do usuário (ETAPA 6) — OAuth com state anti-CSRF
+router.get("/github/me", verificarToken, githubController.me);
+router.get("/github/connect", verificarToken, githubController.connect);
+router.get("/github/callback", githubController.callback); // público (GitHub redireciona)
+router.delete("/github/disconnect", verificarToken, githubController.disconnect);
+
 module.exports = router;

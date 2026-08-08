@@ -1,7 +1,155 @@
 // Controller GitHub — webhook e processamento de eventos (ETAPA 4+)
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 const webhookService = require("../services/githubWebhook");
 const githubApp = require("../services/githubApp");
 const db = require("../database/connection");
+
+const GITHUB_OAUTH_AUTHORIZE = "https://github.com/login/oauth/authorize";
+const GITHUB_OAUTH_TOKEN = "https://github.com/login/oauth/access_token";
+
+/** Gera o state anti-CSRF do OAuth (JWT curto assinado com JWT_SECRET). */
+function gerarStateOAuth(usuarioId) {
+  return jwt.sign({ oauth: "github", uid: usuarioId }, process.env.JWT_SECRET, { expiresIn: "10m" });
+}
+
+/** Valida o state do OAuth e devolve o usuário id (null se inválido/expirado). */
+function validarStateOAuth(state) {
+  try {
+    const payload = jwt.verify(state, process.env.JWT_SECRET);
+    if (!payload || payload.oauth !== "github" || !payload.uid) return null;
+    return payload.uid;
+  } catch {
+    return null;
+  }
+}
+
+/** GET /github/me — estado de conexão do usuário autenticado. */
+async function me(request, response, next) {
+  try {
+    const usuarioLogadoId = request.usuarioAutenticado.id;
+    const [rows] = await db.query(
+      `SELECT github_user_id, github_login, github_avatar_url, github_connected_at
+       FROM usuarios WHERE id = ? LIMIT 1`,
+      [usuarioLogadoId]
+    );
+    const u = rows[0] || {};
+    const conectado = !!(u.github_user_id && u.github_login);
+    return response.status(200).json({
+      sucesso: true,
+      message: conectado ? "Conta GitHub conectada" : "Conta GitHub não conectada",
+      dados: {
+        conectado,
+        github_user_id: u.github_user_id ?? null,
+        github_login: u.github_login ?? null,
+        github_avatar_url: u.github_avatar_url ?? null,
+        github_connected_at: u.github_connected_at ?? null,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/** GET /github/connect — inicia OAuth do usuário (redirect para GitHub com state anti-CSRF). */
+async function connect(request, response, next) {
+  try {
+    const usuarioId = request.usuarioAutenticado.id;
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const callbackUrl = process.env.GITHUB_CALLBACK_URL || "http://localhost:3333/github/callback";
+    if (!clientId) {
+      return response.status(500).json({ sucesso: false, message: "GITHUB_CLIENT_ID não configurado", dados: null });
+    }
+    const state = gerarStateOAuth(usuarioId);
+    const url =
+      `${GITHUB_OAUTH_AUTHORIZE}?client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
+      `&state=${encodeURIComponent(state)}&scope=read:user`;
+    return response.status(200).json({ sucesso: true, message: "URL de conexão", dados: { url, state } });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/** Troca o code do GitHub pelo token de acesso e busca o usuário. */
+async function trocarCodePorUsuarioGitHub(code) {
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  const callbackUrl = process.env.GITHUB_CALLBACK_URL || "http://localhost:3333/github/callback";
+  if (!clientId || !clientSecret) {
+    throw new Error("GITHUB_CLIENT_ID/GITHUB_CLIENT_SECRET não configurados");
+  }
+
+  const tokenRes = await fetch(GITHUB_OAUTH_TOKEN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": "MontesSquad" },
+    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callbackUrl }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    throw new Error("Falha ao obter token do GitHub");
+  }
+
+  const userRes = await fetch("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: "application/json", "User-Agent": "MontesSquad" },
+  });
+  return userRes.json();
+}
+
+/** GET /github/callback — recebe code+state do GitHub e vincula a conta. */
+async function callback(request, response, next) {
+  try {
+    const { code, state } = request.query || {};
+    if (!code || !state) {
+      return response.status(400).json({ sucesso: false, message: "code e state são obrigatórios", dados: null });
+    }
+    const usuarioId = validarStateOAuth(String(state));
+    if (!usuarioId) {
+      return response.status(401).json({ sucesso: false, message: "state inválido ou expirado", dados: null });
+    }
+
+    const gh = await trocarCodePorUsuarioGitHub(String(code));
+    if (!gh || !gh.id) {
+      return response.status(502).json({ sucesso: false, message: "Não foi possível obter o usuário do GitHub", dados: null });
+    }
+
+    // Evita que o MESMO github_user_id seja vinculado a outro usuário MontesSquad
+    const [dup] = await db.query(
+      "SELECT id FROM usuarios WHERE github_user_id = ? AND id != ? LIMIT 1",
+      [gh.id, usuarioId]
+    );
+    if (dup.length > 0) {
+      return response.status(409).json({ sucesso: false, message: "Conta GitHub já vinculada a outro usuário", dados: null });
+    }
+
+    await db.query(
+      `UPDATE usuarios SET
+         github_user_id = ?, github_login = ?, github_avatar_url = ?, github_connected_at = NOW()
+       WHERE id = ?`,
+      [gh.id, gh.login || null, gh.avatar_url || null, usuarioId]
+    );
+
+    const frontendUrl = process.env.GITHUB_FRONTEND_SUCCESS_URL || "http://localhost:5173";
+    return response.redirect(`${frontendUrl}/configuracoes?github=connected`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/** DELETE /github/disconnect — remove o vínculo (histórico de commits preservado). */
+async function disconnect(request, response, next) {
+  try {
+    const usuarioLogadoId = request.usuarioAutenticado.id;
+    await db.query(
+      `UPDATE usuarios SET github_user_id = NULL, github_login = NULL, github_avatar_url = NULL, github_connected_at = NULL
+       WHERE id = ?`,
+      [usuarioLogadoId]
+    );
+    return response.status(200).json({ sucesso: true, message: "Conta GitHub desconectada (histórico preservado)", dados: null });
+  } catch (error) {
+    return next(error);
+  }
+}
 
 /**
  * POST /projetos/:projetoId/github/repository — conecta um repositório ao projeto.
@@ -224,4 +372,9 @@ module.exports = {
   statusRepository,
   desconectarRepository,
   listarRepositoriesInstalacao,
+  me,
+  connect,
+  callback,
+  disconnect,
+  trocarCodePorUsuarioGitHub,
 };
