@@ -25,6 +25,8 @@ const autenticacaoController = require("../controllers/autenticacao");
 const candidaturasController = require("../controllers/candidaturas");
 const membrosController = require("../controllers/membros");
 const tarefasController = require("../controllers/tarefas");
+const notificacoesController = require("../controllers/notificacoes");
+const reputacaoController = require("../controllers/reputacao");
 
 const {
   verificarToken,
@@ -47,6 +49,13 @@ router.post("/usuarios", limiterRotasPublicas, usuariosController.cadastrarUsuar
 router.get("/usuarios", verificarToken, usuariosController.listarUsuarios);
 router.patch("/usuarios/:id", verificarToken, somenteProprioOuAdm, usuariosController.editarUsuario);
 router.delete("/usuarios/:id", verificarToken, somenteAdm, usuariosController.apagarUsuario);
+
+// ROTAS NOTIFICAÇÕES
+router.get("/notificacoes", verificarToken, notificacoesController.listarNotificacoes);
+router.post("/notificacoes/ler-tudo", verificarToken, notificacoesController.marcarTodasLidas);
+
+// ROTAS REPUTAÇÃO
+router.get("/usuarios/:id/reputacao", verificarToken, reputacaoController.obterReputacao);
 
 // ROTAS PROJETOS
 // Todos logados podem explorar projetos

@@ -1,5 +1,6 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { criarNotificacao } = require("./notificacoes");
 
 module.exports = {
   async listarMensagensProjeto(request, response, next) {
@@ -54,6 +55,24 @@ module.exports = {
       `;
 
       const [result] = await db.query(sql, [remetente_id, projetoId, conteudo]);
+
+      // Notifica os demais membros do projeto sobre a nova mensagem
+      const [membros] = await db.query(
+        "SELECT usuario_id FROM membros_equipe WHERE projeto_id = ? AND usuario_id != ?",
+        [projetoId, remetente_id]
+      );
+      const nomeRemetente = request.usuarioAutenticado
+        ? request.usuarioAutenticado.nome
+        : "Um membro";
+      for (const m of membros) {
+        await criarNotificacao(db, {
+          usuario_id: m.usuario_id,
+          tipo: "message",
+          titulo: "Nova mensagem no projeto",
+          descricao: `${nomeRemetente}: ${conteudo.slice(0, 80)}`,
+          link: `/projetos/${projetoId}`,
+        });
+      }
 
       return response.status(201).json({
         sucesso: true,

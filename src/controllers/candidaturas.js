@@ -1,5 +1,6 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { criarNotificacao } = require("./notificacoes");
 
 module.exports = {
   async candidatarSe(request, response, next) {
@@ -58,6 +59,17 @@ module.exports = {
         VALUES (?, ?, 'pendente', ?);
       `;
       const [result] = await db.query(sql, [usuarioId, projetoId, mensagem]);
+
+      // Notifica o dono do projeto sobre a nova candidatura
+      if (projetoExist[0].criador_id !== usuarioId) {
+        await criarNotificacao(db, {
+          usuario_id: projetoExist[0].criador_id,
+          tipo: "application",
+          titulo: "Nova candidatura",
+          descricao: `${request.usuarioAutenticado.nome || "Um usuário"} quer entrar no projeto`,
+          link: `/projetos/${projetoId}`,
+        });
+      }
 
       return response.status(200).json({
         sucesso: true,
@@ -190,6 +202,17 @@ module.exports = {
         await connection.commit();
         connection.release();
         connection = null;
+
+        // Notifica o candidato quando a candidatura é aprovada
+        if (status === "aceito") {
+          await criarNotificacao(db, {
+            usuario_id: candidatura.usuario_id,
+            tipo: "approved",
+            titulo: "Candidatura aprovada",
+            descricao: "Sua candidatura foi aprovada",
+            link: `/projetos/${projetoId}`,
+          });
+        }
 
         return response.status(200).json({
           sucesso: true,

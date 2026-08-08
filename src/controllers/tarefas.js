@@ -1,5 +1,6 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { criarNotificacao } = require("./notificacoes");
 
 const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
 const STATUS_VALIDOS = ["todo", "doing", "done"];
@@ -76,6 +77,17 @@ module.exports = {
       ];
 
       const [result] = await db.query(sql, values);
+
+      // Notifica o responsável quando a tarefa é atribuída
+      if (responsavel_id) {
+        await criarNotificacao(db, {
+          usuario_id: responsavel_id,
+          tipo: "task",
+          titulo: "Nova tarefa atribuída",
+          descricao: "Você recebeu uma nova tarefa",
+          link: `/projetos/${projetoId}`,
+        });
+      }
 
       return response.status(200).json({
         sucesso: true,

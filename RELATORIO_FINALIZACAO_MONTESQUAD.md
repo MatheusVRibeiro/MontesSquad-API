@@ -168,6 +168,15 @@
 
 **Validação da fase:** curl com token real: `GET /usuarios/me/reputacao`, `GET /notificacoes`, `POST /notificacoes/ler-tudo`; conferir notificações criadas após candidatura/mensagem.
 
+**✅ STATUS 2026-08-07 — FASE-02 CONCLUÍDA (2.A–2.E):**
+- ✅ 2.A — Tabela `notificacoes` criada no BD remoto (`scripts/migrar_fase02.js` idempotente, auditado) + sincronizada nos 3 SQLs: `Tabelas.sql` (CREATE, §15), `Insert.sql` (seed §15, 5 linhas consistentes com usuários 1-4), `drop.sql` (DROP).
+- ✅ 2.B — `src/controllers/reputacao.js` (obterReputacao + alias `me`) com contrato camelCase casado com o tipo `Reputation` do frontend; rota `GET /usuarios/:id/reputacao` com `verificarToken`.
+- ✅ 2.C — `src/controllers/notificacoes.js` (`listarNotificacoes`, `marcarTodasLidas`, utilitária `criarNotificacao(pool, {...})` que NUNCA lança); rotas `GET /notificacoes` e `POST /notificacoes/ler-tudo`.
+- ✅ 2.D — Disparos: candidatura → dono (`application`); aprovação `status === "aceito"` → candidato (`approved`, fora da tx); mensagem → demais membros (`message`); tarefa com `responsavel_id` → responsável (`task`).
+- ✅ 2.E — Rotas registradas com `verificarToken` (sem token → 401, validado).
+- **Validação executada:** `node -c` (7 arquivos OK) · smoke do skill (0 falhas) · E2E com banco REAL (servidor spawnado porta 3999): login admin → 200, `GET /notificacoes` → 200 + shape `{sucesso, message, dados, nItens}`, `POST /ler-tudo` → 200, `GET /usuarios/5/reputacao` → 200 + dados, sem token → 401 — **8/8 ✅**.
+- Commit: `c9e591e` (push main).
+
 ---
 
 ## FASE-03 — FRONTEND: integração com API real (candidaturas, mural, perfil, projetos)

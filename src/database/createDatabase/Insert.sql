@@ -103,3 +103,11 @@ INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES
 (3, 'Popular banco com seed inicial', false),
 (4, 'Fazer mock da API', true),
 (4, 'Integrar com Tailwind CSS', false);
+
+-- 15. Inserir Notificações (seed de exemplo)
+INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUES
+(1, 'system', 'Bem-vindo ao MontesSquad', 'Sua conta foi criada com sucesso. Complete seu perfil!', '/perfil', true),
+(2, 'application', 'Nova candidatura', 'Lucas Mendes quer entrar no projeto Dashboard de Vendas', '/projetos/2', false),
+(3, 'approved', 'Candidatura aprovada', 'Sua candidatura foi aprovada no projeto API de Gestão de Frota', '/projetos/1', false),
+(4, 'task', 'Nova tarefa atribuída', 'Você recebeu uma nova tarefa no projeto App de Delivery Local', '/projetos/3', false),
+(1, 'message', 'Nova mensagem no projeto', 'Roberto Almeida: O banco de dados já está modelado?', '/projetos/1', false);

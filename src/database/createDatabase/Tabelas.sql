@@ -155,3 +155,16 @@ CREATE TABLE conquistas_usuario (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (conquista_id) REFERENCES conquistas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- 15. Notificações
+CREATE TABLE notificacoes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    tipo ENUM('application', 'message', 'task', 'system', 'approved') DEFAULT 'system',
+    titulo VARCHAR(150),
+    descricao TEXT,
+    link VARCHAR(255),
+    lida BOOLEAN DEFAULT FALSE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
