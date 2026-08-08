@@ -123,4 +123,11 @@ router.delete("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteD
 const githubController = require("../controllers/github");
 router.post("/github/webhook", githubController.webhook);
 
+// Conexão de repositório ao projeto — somente owner conecta/desconecta;
+// membro/dono consulta o status
+router.post("/projetos/:projetoId/github/repository", verificarToken, somenteDonoDoProjeto, githubController.conectarRepository);
+router.get("/projetos/:projetoId/github/status", verificarToken, somenteMembroOuDonoDoProjeto, githubController.statusRepository);
+router.delete("/projetos/:projetoId/github/repository", verificarToken, somenteDonoDoProjeto, githubController.desconectarRepository);
+router.get("/github/installations/:installationId/repositories", verificarToken, githubController.listarRepositoriesInstalacao);
+
 module.exports = router;
