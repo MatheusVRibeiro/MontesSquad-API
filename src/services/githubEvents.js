@@ -102,7 +102,7 @@ async function processarPullRequest(payload, context = {}) {
       const autor = pr.user?.login || pr.head?.user?.login || "Alguém";
       await criarNotificacao(db, {
         usuario_id: task.responsavel_id,
-        tipo: "github",
+        tipo: "task",
         titulo: "Pull request aberto",
         descricao: `${autor} abriu o PR #${prNumber} para "${task.titulo}".`,
         link: prUrl || `/projetos/${task.projeto_id}`,
@@ -176,7 +176,7 @@ async function processarPullRequest(payload, context = {}) {
     try {
       await criarNotificacao(db, {
         usuario_id: task.responsavel_id,
-        tipo: "github",
+        tipo: "task",
         titulo: "Pull request fechado sem merge",
         descricao: `PR #${prNumber} foi fechado sem merge. A tarefa voltou para Em progresso.`,
         link: prUrl || `/projetos/${task.projeto_id}`,

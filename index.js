@@ -22,22 +22,33 @@ const db = require('./src/database/connection');
 const app = express(); 
 
 // 2. Configuração dinâmica de CORS para as origens reais do frontend
-const allowedOrigins = process.env.FRONTEND_URL 
-  ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) 
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:8080'];
+// FRONTEND_URL aceita múltiplas origens separadas por vírgula (ex.:
+// "http://localhost:5173,http://localhost:5174"). As URLs são normalizadas
+// (trim + lower-case + sem barra final) para tolerar variações de digitação.
+const allowedOrigins = (process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',')
+  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:8080']
+).map(url => url.trim().toLowerCase().replace(/\/+$/, ''));
 
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir requisições sem origin (como mobile apps, curl, postman)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+
+    if (allowedOrigins.includes('*') || allowedOrigins.indexOf(origin.toLowerCase().replace(/\/+$/, '')) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Acesso não permitido pelas regras de CORS'), false);
+      // Marca status 403 no erro: o middleware global lê err.status || 500,
+      // então sem isso a rejeição de origem viraria 500 em vez de 403.
+      const err = new Error('Acesso não permitido pelas regras de CORS');
+      err.status = 403;
+      callback(err, false);
     }
   },
-  credentials: true
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  maxAge: 86400 // cache do preflight por 24h (evita OPTIONS a cada requisição do Axios)
 }));
 
 // Preserva o raw body APENAS para /github/webhook (ETAPA 4 — verificação de assinatura).

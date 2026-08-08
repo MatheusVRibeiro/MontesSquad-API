@@ -106,7 +106,7 @@ async function atualizarTaskPorPR({ taskId, prId, prNumber, prUrl, status, conn 
 async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, conn }) {
   const executor = conn || db;
   const [rows] = await executor.query(
-    `SELECT id, status, completion_source, github_pr_id
+    `SELECT id, status, concluida_via, github_pr_id
      FROM tarefas WHERE id = ? LIMIT 1`,
     [taskId]
   );
@@ -114,7 +114,7 @@ async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, c
 
   const task = rows[0];
   // Idempotência: já concluída pelo MESMO PR → sem efeitos
-  if (task.status === "done" && task.completion_source === "github_merge" && task.github_pr_id === prId) {
+  if (task.status === "done" && task.concluida_via === "github_merge" && task.github_pr_id === prId) {
     return { concluida: false, jaConcluida: true };
   }
 
@@ -122,7 +122,7 @@ async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, c
     `UPDATE tarefas SET
        github_pr_id = ?, github_pr_number = ?, github_pr_url = ?,
        github_pr_status = 'merged', status = 'done',
-       completion_source = 'github_merge', completed_at = ?,
+       concluida_via = 'github_merge', concluida_em = ?,
        github_last_activity_at = NOW()
      WHERE id = ?`,
     [prId, prNumber, prUrl, mergedAt || new Date(), taskId]

@@ -40,10 +40,10 @@ function stubarBanco() {
           if (s.startsWith("update tarefas set github_last_activity_at")) {
             return queries.updateAtividade(params);
           }
-          if (s.includes("select id, status, completion_source, github_pr_id from tarefas")) {
+          if (s.includes("select id, status, concluida_via, github_pr_id from tarefas")) {
             return queries.selectTaskMerge(params);
           }
-          if (s.includes("github_pr_status = 'merged'") && s.includes("completion_source = 'github_merge'")) {
+          if (s.includes("github_pr_status = 'merged'") && s.includes("concluida_via = 'github_merge'")) {
             return queries.updateTaskMerge(params);
           }
           if (s.includes("github_pr_status = 'closed'") && s.includes("status = 'doing'")) {
@@ -111,7 +111,7 @@ describe("processarPullRequest (ETAPA 9)", () => {
     queries.upsertPR.mockResolvedValue([{ affectedRows: 1 }, []]);
     queries.updateTaskPR.mockResolvedValue([{ affectedRows: 1 }, []]);
     queries.updateAtividade.mockResolvedValue([{ affectedRows: 1 }, []]);
-    queries.selectTaskMerge.mockResolvedValue([[{ id: 38, status: "review", completion_source: null, github_pr_id: null }], []]);
+    queries.selectTaskMerge.mockResolvedValue([[{ id: 38, status: "review", concluida_via: null, github_pr_id: null }], []]);
     queries.updateTaskMerge.mockResolvedValue([{ affectedRows: 1 }, []]);
     queries.updateClosedSemMerge.mockResolvedValue([{ affectedRows: 1 }, []]);
     queries.insertNotificacao.mockResolvedValue([{ insertId: 9, affectedRows: 1 }, []]);
@@ -159,7 +159,7 @@ describe("processarPullRequest (ETAPA 9)", () => {
   });
 
   it("delivery repetido (task já done pelo mesmo PR) → sem efeitos (jaConcluida)", async () => {
-    queries.selectTaskMerge.mockResolvedValue([[{ id: 38, status: "done", completion_source: "github_merge", github_pr_id: 500 }], []]);
+    queries.selectTaskMerge.mockResolvedValue([[{ id: 38, status: "done", concluida_via: "github_merge", github_pr_id: 500 }], []]);
     const res = await githubEvents.processarPullRequest(
       payloadPR({ action: "closed", merged: true, prId: 500 }),
       { deliveryId: "d6" }

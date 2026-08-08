@@ -160,7 +160,7 @@ async function taskGithubStatus(request, response, next) {
     const { projetoId, tarefaId } = request.params;
     const [rows] = await db.query(
       `SELECT t.github_branch, t.github_pr_number, t.github_pr_url, t.github_pr_status,
-              t.github_last_activity_at, t.completion_source, t.completed_at
+              t.github_last_activity_at, t.concluida_via AS completion_source, t.concluida_em AS completed_at
        FROM tarefas t WHERE t.id = ? AND t.projeto_id = ? LIMIT 1`,
       [tarefaId, projetoId]
     );
@@ -252,7 +252,7 @@ async function taskTimeline(request, response, next) {
     const [taskRows] = await db.query(
       `SELECT t.id, t.titulo, t.status, t.github_branch, t.assumida_em,
               t.github_pr_number, t.github_pr_status, t.github_last_activity_at,
-              t.completion_source, t.completed_at, u.nome AS responsavel_nome
+              t.concluida_via AS completion_source, t.concluida_em AS completed_at, u.nome AS responsavel_nome
        FROM tarefas t
        LEFT JOIN usuarios u ON u.id = t.responsavel_id
        WHERE t.id = ? AND t.projeto_id = ? LIMIT 1`,

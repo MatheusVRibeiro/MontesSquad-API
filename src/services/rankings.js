@@ -41,14 +41,17 @@ async function evidenciasContribuicao({ projetoId = null, periodo = null } = {})
   const params = [];
   let filtroProjeto = "";
   let filtroProjetoPr = "";
-  let filtroPeriodo = "";
+  let filtroPeriodoCommits = "";
+  let filtroPeriodoXp = "";
   if (projetoId != null) {
     filtroProjeto = "AND g.projeto_id = ?";
     filtroProjetoPr = "AND t.projeto_id = ?";
     params.push(projetoId, projetoId);
   }
   if (periodo === "month") {
-    filtroPeriodo = "AND g.criado_em >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+    // github_commits usa committed_at; eventos_xp usa criado_em (schema real)
+    filtroPeriodoCommits = "AND g.committed_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+    filtroPeriodoXp = "AND e.criado_em >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
   }
 
   // GitHub_commits tem autor por author_github_id; github_pull_requests não tem
@@ -71,7 +74,7 @@ async function evidenciasContribuicao({ projetoId = null, periodo = null } = {})
               COUNT(*) AS commitCount,
               COUNT(DISTINCT tarefa_id) AS tasksComCommit
        FROM github_commits g
-       WHERE 1=1 ${filtroProjeto} ${filtroPeriodo}
+       WHERE 1=1 ${filtroProjeto} ${filtroPeriodoCommits}
        GROUP BY author_github_id
      ) c ON c.gid = u.github_user_id
      LEFT JOIN (
@@ -86,7 +89,7 @@ async function evidenciasContribuicao({ projetoId = null, periodo = null } = {})
      LEFT JOIN (
        SELECT usuario_id AS uid, COUNT(*) AS tasksVerificadas
        FROM eventos_xp e
-       WHERE e.tipo = 'github_merge' ${filtroPeriodo}
+       WHERE e.tipo = 'github_merge' ${filtroPeriodoXp}
        GROUP BY usuario_id
      ) tv ON tv.uid = u.id
      WHERE (c.commitCount > 0 OR pr.prsAbertos > 0 OR pr.prsMergeados > 0 OR tv.tasksVerificadas > 0)

@@ -121,6 +121,6 @@ describe("processarPush (ETAPA 8)", () => {
     await githubEvents.processarPush(payloadPush({ commits: [commitFake("abc")] }), { deliveryId: "d5" });
     const chamadas = queries.updateAtividade.mock.calls;
     const sqls = chamadas.map((c) => String(c[0]).toLowerCase());
-    expect(sqls.every((s) => !s.includes("completion_source") && !s.includes("completed_at") && !s.includes("status = 'done'"))).toBe(true);
+    expect(sqls.every((s) => !s.includes("concluida_via") && !s.includes("concluida_em") && !s.includes("status = 'done'"))).toBe(true);
   });
 });
