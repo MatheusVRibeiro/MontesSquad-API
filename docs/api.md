@@ -483,3 +483,112 @@ Completa o perfil do usuário que entrou com GitHub (ETAPA 1). **Novo na ETAPA 2
 | Backfill (migração `scripts/migrar_evolucao_etapa2.js`) | Contas com `cadastro_origem='local'` → `1`; contas `github` permanecem `0` |
 
 **Efeito no fluxo:** com `senha_definida=1` a conta sempre terá a senha local como método de login alternativo, liberando a desconexão do GitHub. A migração é aditiva e idempotente (consulta `INFORMATION_SCHEMA` antes de criar a coluna).
+
+---
+
+### 20. Evolução ETAPA 3 — Perfil técnico completo (Onboarding)
+
+A ETAPA 3 transforma a conta básica em **perfil técnico completo** para matching e colaboração. O perfil passa a reunir: dados básicos, tecnologias com nível por tecnologia, funções de interesse com `nivel_interesse`, disponibilidade semanal e objetivo profissional. Quando os campos essenciais estão preenchidos, o backend marca `usuarios.perfil_completo = 1` — o critério de aceite é que o perfil consiga alimentar filtros e matching **sem depender do GitHub**.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa3.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Objeto | Detalhe |
+|---|---|
+| Tabela **`funcoes`** | Catálogo fixo de funções: `id INT AUTO_INCREMENT PK`, `nome VARCHAR(100) NOT NULL UNIQUE`. Seed padrão (INSERT IGNORE) com 9 funções: **Backend, Frontend, Full Stack, Mobile, QA, DevOps, UX/UI, Data, Product**. |
+| Tabela **`funcoes_usuario`** | Vínculo usuário ↔ função de interesse: `usuario_id`, `funcao_id`, `nivel_interesse ENUM('baixo','medio','alto') DEFAULT 'medio'`, PK composta `(usuario_id, funcao_id)`, FKs `ON DELETE CASCADE` (usuários e funcoes). |
+| Coluna `usuarios.disponibilidade_horas_semana` | `INT NULL` — disponibilidade semanal em horas. |
+| Coluna `usuarios.objetivo_profissional` | `VARCHAR(255) NULL` — objetivo atual do usuário. |
+| Coluna `usuarios.perfil_completo` | `BOOLEAN DEFAULT FALSE` — recalculada pelo backend; vira `1` quando o perfil técnico está completo. |
+| Nível por tecnologia | **Reutiliza** a coluna `habilidades_usuario.nivel ENUM('iniciante','intermediario','avancado')` (tabela já existente) — **não** há tabela nova de nível. |
+
+#### `GET /funcoes` (Requer Token)
+Lista as funções disponíveis na plataforma (catálogo da tabela `funcoes`).
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Funções carregadas com sucesso",
+    "nItens": 9,
+    "dados": [
+      { "id": 1, "nome": "Backend" },
+      { "id": 2, "nome": "Frontend" },
+      { "id": 3, "nome": "Full Stack" },
+      { "id": 4, "nome": "Mobile" },
+      { "id": 5, "nome": "QA" },
+      { "id": 6, "nome": "DevOps" },
+      { "id": 7, "nome": "UX/UI" },
+      { "id": 8, "nome": "Data" },
+      { "id": 9, "nome": "Product" }
+    ]
+  }
+  ```
+
+#### `GET /usuarios/me/perfil` (Requer Token)
+Retorna o perfil técnico completo do usuário autenticado: dados básicos + habilidades com nível por tecnologia + funções de interesse com `nivel_interesse` + disponibilidade semanal + objetivo profissional + flag `perfil_completo`.
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Perfil carregado com sucesso",
+    "dados": {
+      "id": 1,
+      "nome": "João Silva",
+      "email": "user@example.com",
+      "bio": "Desenvolvedor Backend Node.js",
+      "localizacao": "Belo Horizonte, MG",
+      "disponibilidade_horas_semana": 20,
+      "objetivo_profissional": "Quero atuar em projetos Node.js e aprender arquitetura de microsserviços",
+      "perfil_completo": true,
+      "habilidades": [
+        { "habilidade_id": 1, "nome": "Node.js", "nivel": "avancado" },
+        { "habilidade_id": 4, "nome": "Docker", "nivel": "iniciante" }
+      ],
+      "funcoes": [
+        { "funcao_id": 1, "nome": "Backend", "nivel_interesse": "alto" },
+        { "funcao_id": 3, "nome": "Full Stack", "nivel_interesse": "medio" }
+      ]
+    }
+  }
+  ```
+
+#### `PATCH /usuarios/me/perfil` (Requer Token)
+Atualiza os campos editáveis do perfil técnico do usuário autenticado: `nome`, `bio`, `localizacao`, `disponibilidade_horas_semana` e `objetivo_profissional`. O backend **recalcula** `perfil_completo` automaticamente com base no preenchimento dos campos essenciais.
+- **Request Body:**
+  ```json
+  {
+    "nome": "João Silva",
+    "bio": "Desenvolvedor Backend Pleno focado em Node.js",
+    "localizacao": "Belo Horizonte, MG",
+    "disponibilidade_horas_semana": 20,
+    "objetivo_profissional": "Quero atuar em projetos Node.js e aprender arquitetura de microsserviços"
+  }
+  ```
+- **Response (200 OK):** `dados` com os campos atualizados + `perfil_completo` recalculado.
+
+#### `PUT /usuarios/me/funcoes` (Requer Token)
+Grava/atualiza as funções de interesse do usuário autenticado na tabela `funcoes_usuario` (upsert — INSERT ... ON DUPLICATE KEY UPDATE). Cada item informa o `funcao_id` (vindo do `GET /funcoes`) e o `nivel_interesse` (`baixo` | `medio` | `alto`).
+- **Request Body:**
+  ```json
+  {
+    "funcoes": [
+      { "funcao_id": 1, "nivel_interesse": "alto" },
+      { "funcao_id": 3, "nivel_interesse": "medio" }
+    ]
+  }
+  ```
+- **Response (200 OK):** `{ "sucesso": true, "message": "Funções de interesse atualizadas", "dados": null }`.
+
+#### `PUT /usuarios/me/habilidades` (Requer Token)
+Grava/atualiza as tecnologias do usuário autenticado na tabela `habilidades_usuario` (upsert — INSERT ... ON DUPLICATE KEY UPDATE; complementa o `POST /habilidades-usuario` individual com a versão em lote usada no onboarding). Cada item informa o `habilidade_id` (vindo do `GET /habilidades`) e o `nivel` por tecnologia: `iniciante` | `intermediario` | `avancado`.
+- **Request Body:**
+  ```json
+  {
+    "habilidades": [
+      { "habilidade_id": 1, "nivel": "avancado" },
+      { "habilidade_id": 4, "nivel": "iniciante" }
+    ]
+  }
+  ```
+- **Response (200 OK):** `{ "sucesso": true, "message": "Habilidades atualizadas", "dados": null }`.
+
+> **Nota:** o nível por tecnologia fica em `habilidades_usuario.nivel` (coluna ENUM `iniciante`/`intermediario`/`avancado` da tabela já existente) — não há tabela nova de nível. O GitHub pode sugerir tecnologias futuramente, mas **nunca** define o nível automaticamente.
