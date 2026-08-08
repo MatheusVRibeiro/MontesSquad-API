@@ -592,3 +592,114 @@ Grava/atualiza as tecnologias do usuário autenticado na tabela `habilidades_usu
 - **Response (200 OK):** `{ "sucesso": true, "message": "Habilidades atualizadas", "dados": null }`.
 
 > **Nota:** o nível por tecnologia fica em `habilidades_usuario.nivel` (coluna ENUM `iniciante`/`intermediario`/`avancado` da tabela já existente) — não há tabela nova de nível. O GitHub pode sugerir tecnologias futuramente, mas **nunca** define o nível automaticamente.
+
+---
+
+### 21. Evolução ETAPA 4 — Vagas por função no projeto
+
+A ETAPA 4 troca a ideia limitada de "quantidade de pessoas" por **vagas estruturadas por função** (tabela nova `vagas_projeto`). O projeto pode continuar com `limite_membros`, mas agora comunica claramente quais perfis ainda procura (ex.: `2 Backend`, `1 Frontend`, `1 QA`, `1 UX/UI`). Cada vaga referencia uma função do catálogo `funcoes` (ETAPA 3) e possui quantidade, nível desejado e status próprios.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa4.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Tabela **`vagas_projeto`** | `id INT AUTO_INCREMENT PRIMARY KEY`, `projeto_id INT NOT NULL`, `funcao_id INT NOT NULL`, `quantidade INT NOT NULL DEFAULT 1`, `preenchidas INT NOT NULL DEFAULT 0`, `descricao TEXT NULL`, `nivel_desejado ENUM('iniciante','intermediario','avancado','qualquer') DEFAULT 'qualquer'`, `status ENUM('aberta','fechada') DEFAULT 'aberta'`, `criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. |
+| FK `projeto_id` | → `projetos(id)` `ON DELETE CASCADE` (vagas somem junto com o projeto). |
+| FK `funcao_id` | → `funcoes(id)` `ON DELETE RESTRICT` (função do catálogo não pode ser removida enquanto houver vaga referenciando). |
+
+**Regras de negócio:**
+- `quantidade > 0` (validado no POST e no PATCH);
+- `preenchidas <= quantidade` — o backend nunca permite ultrapassar (nem ao reduzir a quantidade);
+- `preenchidas` é incrementada automaticamente ao aceitar uma candidatura vinculada à vaga;
+- vaga pode ser reaberta (`status` volta para `aberta`) quando um membro sai, quando aplicável;
+- **Somente o owner altera vagas** (POST/PATCH/DELETE); a leitura (GET) é liberada para membros e dono.
+
+#### `GET /projetos/:projetoId/vagas` (Membro/dono)
+Lista as vagas do projeto com o nome da função (JOIN `funcoes`).
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Vagas carregadas com sucesso",
+    "nItens": 2,
+    "dados": [
+      {
+        "id": 1,
+        "projeto_id": 10,
+        "funcao_id": 1,
+        "funcao_nome": "Backend",
+        "quantidade": 2,
+        "preenchidas": 1,
+        "descricao": "Desenvolvedor Node.js para APIs REST",
+        "nivel_desejado": "intermediario",
+        "status": "aberta",
+        "criado_em": "2026-08-08T12:00:00.000Z"
+      }
+    ]
+  }
+  ```
+- **Erros:** 403 (usuário não é membro/dono do projeto), 404 (projeto inexistente).
+
+#### `POST /projetos/:projetoId/vagas` (Somente owner)
+Cria uma nova vaga no projeto.
+- **Request Body:**
+  ```json
+  {
+    "funcao_id": 1,
+    "quantidade": 2,
+    "descricao": "Desenvolvedor Node.js para APIs REST",
+    "nivel_desejado": "intermediario"
+  }
+  ```
+- **Response (200 OK):** `dados` com a vaga criada (mesma estrutura do GET, incluindo `funcao_nome`).
+- **Erros:** 400 (`funcao_id` inexistente, `quantidade <= 0` ou `nivel_desejado` fora do ENUM), 403 (não é owner), 404 (projeto inexistente).
+
+#### `PATCH /projetos/:projetoId/vagas/:vagaId` (Somente owner)
+Atualiza os campos editáveis da vaga: `funcao_id`, `quantidade`, `descricao`, `nivel_desejado` e `status`. Ao reduzir a quantidade, o backend valida que ela não fique abaixo de `preenchidas`.
+- **Request Body:**
+  ```json
+  {
+    "quantidade": 3,
+    "nivel_desejado": "avancado",
+    "status": "fechada"
+  }
+  ```
+- **Response (200 OK):** `dados` com a vaga atualizada.
+- **Erros:** 400 (validação, ex.: `quantidade < preenchidas`), 403 (não é owner), 404 (vaga inexistente no projeto).
+
+#### `DELETE /projetos/:projetoId/vagas/:vagaId` (Somente owner)
+Remove uma vaga do projeto.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Vaga removida com sucesso", "dados": null }`.
+- **Erros:** 403 (não é owner), 404 (vaga inexistente no projeto), **409** (vaga com `preenchidas > 0` — já possui membros alocados e não pode ser removida).
+
+#### `GET /projetos/:id` (Requer Token) — novo campo `vagas`
+O detalhamento do projeto (seção 3) passa a incluir o array **`vagas`** em `dados`, com a mesma estrutura do `GET /projetos/:projetoId/vagas` (incluindo `funcao_nome`):
+```json
+{
+  "sucesso": true,
+  "message": "Detalhes do projeto carregados com sucesso",
+  "dados": {
+    "id": "10",
+    "name": "MonteSquad Web",
+    "description": "Plataforma para...",
+    "status": "Aberto",
+    "membersLimit": 6,
+    "members": [],
+    "tasks": [],
+    "messages": [],
+    "applications": [],
+    "vagas": [
+      {
+        "id": 1,
+        "funcao_id": 1,
+        "funcao_nome": "Backend",
+        "quantidade": 2,
+        "preenchidas": 1,
+        "nivel_desejado": "intermediario",
+        "status": "aberta"
+      }
+    ]
+  }
+}
+```
+Vagas com `status = 'fechada'` ou já totalmente preenchidas (`preenchidas >= quantidade`) também aparecem no array — o frontend decide como exibi-las.
