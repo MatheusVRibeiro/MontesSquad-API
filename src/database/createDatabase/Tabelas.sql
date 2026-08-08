@@ -6,6 +6,7 @@ CREATE TABLE usuarios (
     senha VARCHAR(255) NOT NULL,
     bio TEXT,
     localizacao VARCHAR(100),
+    avatar_url VARCHAR(500),
     tipo ENUM('membro', 'adm') DEFAULT 'membro' NOT NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

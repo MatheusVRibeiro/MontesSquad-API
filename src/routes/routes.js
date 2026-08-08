@@ -47,6 +47,7 @@ router.post("/usuarios", limiterRotasPublicas, usuariosController.cadastrarUsuar
 
 // Apenas usuários logados podem listar e editar perfis. Apenas Adm ou o próprio usuário edita seu perfil.
 router.get("/usuarios", verificarToken, usuariosController.listarUsuarios);
+router.get("/usuarios/me", verificarToken, usuariosController.obterUsuarioAutenticado);
 router.patch("/usuarios/:id", verificarToken, somenteProprioOuAdm, usuariosController.editarUsuario);
 router.delete("/usuarios/:id", verificarToken, somenteAdm, usuariosController.apagarUsuario);
 

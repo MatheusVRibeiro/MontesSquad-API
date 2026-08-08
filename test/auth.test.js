@@ -4,11 +4,11 @@ import { buildApp, criarPoolFake, HASH_SENHA } from "./helpers/bootstrap.js";
 
 const pool = criarPoolFake([
   {
-    // SELECT id, nome, email, senha, tipo FROM usuarios WHERE email = ? LIMIT 1
-    match: (sql) => /^select id, nome, email, senha, tipo from usuarios where email = \? limit 1$/.test(sql),
+    // SELECT id, nome, email, senha, tipo, bio, localizacao, avatar_url FROM usuarios WHERE email = ? LIMIT 1
+    match: (sql) => /^select id, nome, email, senha, tipo, bio, localizacao, avatar_url from usuarios where email = \? limit 1$/.test(sql),
     resposta: (params) =>
       params[0] === "lucas@email.com"
-        ? [[{ id: 2, nome: "Lucas", email: "lucas@email.com", senha: HASH_SENHA, tipo: "membro" }], []]
+        ? [[{ id: 2, nome: "Lucas", email: "lucas@email.com", senha: HASH_SENHA, tipo: "membro", bio: null, localizacao: null, avatar_url: null }], []]
         : [[], []],
   },
 ]);

@@ -8,7 +8,7 @@ module.exports = {
 
       const sql = `
           SELECT 
-            id, nome, email, bio, localizacao, criado_em
+            id, nome, email, bio, localizacao, avatar_url, tipo, criado_em
             FROM usuarios 
         `;
 
@@ -93,7 +93,7 @@ module.exports = {
   },
   async editarUsuario(request, response, next) {
     try {
-      const { nome, email, bio, localizacao, senha } = request.body;
+      const { nome, email, bio, localizacao, senha, avatar_url } = request.body;
       const { id } = request.params;
 
       const fields = [];
@@ -103,6 +103,7 @@ module.exports = {
       if (email !== undefined) { fields.push("email = ?"); values.push(email); }
       if (bio !== undefined) { fields.push("bio = ?"); values.push(bio); }
       if (localizacao !== undefined) { fields.push("localizacao = ?"); values.push(localizacao); }
+      if (avatar_url !== undefined) { fields.push("avatar_url = ?"); values.push(avatar_url); }
       if (senha !== undefined && senha !== "") {
         const senhaCriptografada = await bcrypt.hash(senha, 10);
         fields.push("senha = ?");
@@ -125,7 +126,7 @@ module.exports = {
 
       // Busca dados atuais do usuário para responder com o objeto atualizado
       const [userRows] = await db.query(
-        "SELECT id, nome, email, bio, localizacao, tipo FROM usuarios WHERE id = ? LIMIT 1",
+        "SELECT id, nome, email, bio, localizacao, avatar_url, tipo FROM usuarios WHERE id = ? LIMIT 1",
         [id]
       );
 
@@ -135,6 +136,7 @@ module.exports = {
         email,
         bio,
         localizacao,
+        avatar_url,
       };
 
       return response.status(200).json({
@@ -144,6 +146,33 @@ module.exports = {
       });
     } catch (error) {
       return next(new AppError("Erro na edição de usuário", 500, error));
+    }
+  },
+  async obterUsuarioAutenticado(request, response, next) {
+    try {
+      const usuarioLogadoId = request.usuarioAutenticado.id;
+
+      const [rows] = await db.query(
+        `SELECT id, nome, email, bio, localizacao, avatar_url, tipo, criado_em
+         FROM usuarios WHERE id = ? LIMIT 1`,
+        [usuarioLogadoId]
+      );
+
+      if (rows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Usuário não encontrado",
+          dados: null,
+        });
+      }
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Usuário autenticado",
+        dados: rows[0],
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao obter usuário autenticado", 500, error));
     }
   },
   async apagarUsuario(request, response, next) {

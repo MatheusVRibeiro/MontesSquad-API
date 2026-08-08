@@ -85,7 +85,7 @@ module.exports = {
       }
 
       const sql = `
-        SELECT id, nome, email, senha, tipo
+        SELECT id, nome, email, senha, tipo, bio, localizacao, avatar_url
         FROM usuarios
         WHERE email = ?
         LIMIT 1
@@ -126,6 +126,9 @@ module.exports = {
           nome: usuario.nome,
           email: usuario.email,
           tipo: usuario.tipo,
+          bio: usuario.bio ?? null,
+          localizacao: usuario.localizacao ?? null,
+          avatar_url: usuario.avatar_url ?? null,
         },
       });
     } catch (error) {

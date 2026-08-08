@@ -10,7 +10,7 @@ const pool = criarPoolFake([
   },
   {
     // SELECT dados atuais pós-update
-    match: (sql) => /^select id, nome, email, bio, localizacao, tipo from usuarios where id = \? limit 1$/.test(sql),
+    match: (sql) => /^select id, nome, email, bio, localizacao, avatar_url, tipo from usuarios where id = \? limit 1$/.test(sql),
     resposta: (params) => {
       const nomes = { 1: "Admin MontesSquad", 2: "Lucas", 3: "Fernanda" };
       const id = Number(params[0]);
@@ -21,6 +21,7 @@ const pool = criarPoolFake([
           email: `u${id}@email.com`,
           bio: "bio nova",
           localizacao: "SP",
+          avatar_url: null,
           tipo: id === 1 ? "adm" : "membro",
         },
       ], []];
