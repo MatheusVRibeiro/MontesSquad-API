@@ -16,6 +16,7 @@ const limiterRotasPublicas = rateLimit({
 });
 
 const usuariosController = require("../controllers/usuarios");
+const perfilController = require("../controllers/perfil");
 const projetosController = require("../controllers/projetos");
 const habilidadesController = require("../controllers/habilidades");
 const habilidadesUsuarioController = require("../controllers/habilidades_usuario");
@@ -54,6 +55,14 @@ router.post("/usuarios", limiterRotasPublicas, usuariosController.cadastrarUsuar
 // Apenas usuários logados podem listar e editar perfis. Apenas Adm ou o próprio usuário edita seu perfil.
 router.get("/usuarios", verificarToken, usuariosController.listarUsuarios);
 router.get("/usuarios/me", verificarToken, usuariosController.obterUsuarioAutenticado);
+
+// ROTAS PERFIL TÉCNICO (Evolução ETAPA 3 — completar perfil técnico)
+router.get("/funcoes", verificarToken, perfilController.listarFuncoes);
+router.get("/usuarios/me/perfil", verificarToken, perfilController.obterPerfilTecnico);
+router.patch("/usuarios/me/perfil", verificarToken, perfilController.atualizarPerfilTecnico);
+router.put("/usuarios/me/funcoes", verificarToken, perfilController.atualizarFuncoesUsuario);
+router.put("/usuarios/me/habilidades", verificarToken, perfilController.atualizarHabilidadesUsuario);
+
 router.patch("/usuarios/:id", verificarToken, somenteProprioOuAdm, usuariosController.editarUsuario);
 router.delete("/usuarios/:id", verificarToken, somenteAdm, usuariosController.apagarUsuario);
 

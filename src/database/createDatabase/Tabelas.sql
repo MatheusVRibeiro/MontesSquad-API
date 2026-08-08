@@ -14,6 +14,9 @@ CREATE TABLE usuarios (
     cadastro_origem ENUM('local','github') DEFAULT 'local' NOT NULL,
     senha_definida TINYINT(1) DEFAULT 0 NOT NULL,
     tipo ENUM('membro', 'adm') DEFAULT 'membro' NOT NULL,
+    disponibilidade_horas_semana INT NULL,
+    objetivo_profissional VARCHAR(255) NULL,
+    perfil_completo BOOLEAN DEFAULT FALSE,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_usuarios_github_user_id (github_user_id)
 ) ENGINE=InnoDB;
@@ -62,6 +65,21 @@ CREATE TABLE habilidades_projeto (
     PRIMARY KEY (projeto_id, habilidade_id),
     FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
     FOREIGN KEY (habilidade_id) REFERENCES habilidades(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 5b. Funções de interesse (Evolução ETAPA 3)
+CREATE TABLE funcoes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE funcoes_usuario (
+    usuario_id INT NOT NULL,
+    funcao_id INT NOT NULL,
+    nivel_interesse ENUM('baixo', 'medio', 'alto') DEFAULT 'medio',
+    PRIMARY KEY (usuario_id, funcao_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 6. Candidaturas (Match)

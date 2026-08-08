@@ -13,6 +13,18 @@ INSERT INTO habilidades (nome) VALUES
 ('Python'), 
 ('Docker');
 
+-- 2b. Inserir Funções de Interesse (Evolução ETAPA 3)
+INSERT INTO funcoes (nome) VALUES 
+('Backend'), 
+('Frontend'), 
+('Full Stack'), 
+('Mobile'), 
+('QA'), 
+('DevOps'), 
+('UX/UI'), 
+('Data'), 
+('Product');
+
 -- 3. Inserir Projetos
 INSERT INTO projetos (criador_id, titulo, descricao, status, limite_membros, repositorio_url, figma_url, discord_url, documentacao_url) VALUES 
 (1, 'API de Gestão de Frota', 'Backend para controle de veículos e manutenções.', 'aberto', 6, 'https://github.com/lucas-mendes/api-gestao-frota', 'https://figma.com/file/gestao-frota-mock', 'https://discord.gg/invite-frota', 'https://notion.so/wiki-gestao-frota'),
@@ -26,6 +38,13 @@ INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel) VALUES
 (2, 3, 'avancado'),      -- Fernanda sabe Python
 (3, 2, 'intermediario'), -- Roberto sabe React
 (4, 4, 'iniciante');     -- Juliana sabe Docker
+
+-- 4b. Inserir Funções de Interesse dos Usuários (Evolução ETAPA 3)
+INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES 
+(1, 1, 'alto'),          -- Lucas: Backend
+(2, 8, 'alto'),          -- Fernanda: Data
+(3, 2, 'alto'),          -- Roberto: Frontend
+(4, 3, 'alto');          -- Juliana: Full Stack
 
 -- 5. Inserir Habilidades Exigidas nos Projetos
 INSERT INTO habilidades_projeto (projeto_id, habilidade_id) VALUES 

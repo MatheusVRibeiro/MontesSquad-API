@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:setup": "node scripts/migrar_fase01.js && node scripts/migrar_fase02.js && node scripts/migrar_avatar_url.js",
-    "db:github": "node scripts/migrar_github_integracao.js"
+    "db:github": "node scripts/migrar_github_integracao.js",
+    "db:etapa3": "node scripts/migrar_evolucao_etapa3.js"
   },
   "keywords": [
     "Node JS",

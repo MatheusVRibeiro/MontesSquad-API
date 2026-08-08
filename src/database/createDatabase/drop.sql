@@ -14,6 +14,8 @@ DROP TABLE IF EXISTS membros_equipe;
 DROP TABLE IF EXISTS candidaturas;
 DROP TABLE IF EXISTS habilidades_projeto;
 DROP TABLE IF EXISTS habilidades_usuario;
+DROP TABLE IF EXISTS funcoes_usuario;
+DROP TABLE IF EXISTS funcoes;
 DROP TABLE IF EXISTS projetos;
 DROP TABLE IF EXISTS habilidades;
 DROP TABLE IF EXISTS usuarios;
