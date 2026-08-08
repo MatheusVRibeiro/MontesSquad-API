@@ -40,7 +40,23 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json()); 
+// Preserva o raw body APENAS para /github/webhook (ETAPA 4 — verificação de assinatura).
+// DEVE vir ANTES do express.json() global, senão o JSON consome o body primeiro.
+app.use(
+  "/github/webhook",
+  express.raw({ type: () => true, limit: "5mb" }),
+  (req, _res, next) => {
+    // express.raw() entrega Buffer; normaliza para string para o verifier.
+    if (req.body && Buffer.isBuffer(req.body)) {
+      req.rawBody = req.body.toString("utf8");
+    } else if (typeof req.body === "string") {
+      req.rawBody = req.body;
+    }
+    next();
+  }
+);
+
+app.use(express.json());
 
 app.use(router);
 

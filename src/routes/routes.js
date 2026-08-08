@@ -118,4 +118,9 @@ router.patch("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteMe
 // Somente o dono do projeto deleta tarefas
 router.delete("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteDonoDoProjeto, tarefasController.apagarTarefa);
 
+// ROTAS GITHUB (integração GitHub-Kanban)
+// Webhook público: autenticação por assinatura HMAC (NÃO usa verificarToken)
+const githubController = require("../controllers/github");
+router.post("/github/webhook", githubController.webhook);
+
 module.exports = router;
