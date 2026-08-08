@@ -285,6 +285,17 @@
 
 **Validação da fase:** navegador completo — perfil, notificações, dashboard, recuperação de senha; console limpo; backend fora → estados de erro visíveis.
 
+**✅ STATUS 2026-08-07 — FASE-04 CONCLUÍDA (4.A–4.G, testes reais):**
+- ✅ 4.A — `fetchReputation` → `GET /usuarios/me/reputacao` (alias `me`), valida `{sucesso, dados}`, PROD lança erro (DEV mantém mock); `perfil.tsx` com `ReputationState` (loading/erro/empty + retry).
+- ✅ 4.B — `fetchNotifications` → `GET /notificacoes` (map snake→camel), `markAllRead` → `POST /notificacoes/ler-tudo`; página + sino reais. Testado: candidatura do admin gerou notificação `application` p/ Fernanda (read: True após ler-tudo) ✅.
+- ✅ 4.C — `dashboard.tsx` reescrito: XP/nível de `fetchReputation`, tarefas reais via `useQueries` de `GET /projetos/:id/tarefas` (projetos do `history`); sem valores inventados (XP mostra 0 real quando não há estatísticas). Novo `src/services/tasks.ts`.
+- ✅ 4.D — Rotas `recuperar-senha.tsx` + `resetar-senha.tsx` (token via `?token=`), registradas no router; login link real → `/recuperar-senha`; backend fallback `RESET_PASSWORD_URL` → `http://localhost:5173/resetar-senha?token=` (commit `a5bde8c`). Smoke real do subagent: POST /recuperar-senha 200, estados do reset OK.
+- ✅ 4.E — Busca global (AppLayout form) → Enter navega `/projetos?q=termo`; `projetos.index.tsx` valida `q` e filtra (fuzzyMatch). Testado: "QA FASE" → `/projetos?q=QA+FASE` → listagem filtrou só "Squad QA FASE-03" ✅.
+- ✅ 4.F — PROD sem fallback fictício em `projects.ts`/`projectDetail.ts`/`reputation.ts`/`notifications.ts` (console.error + throw; DEV mantém mock).
+- ✅ 4.G — Mocks isolados em `src/services/mocks.ts` (dev-only).
+- **Commits:** backend `a5bde8c` + frontend `84c0f55` — push main.
+- **Pendência documentada:** tabela `estatisticas_usuario` vazia no BD real → reputação mostra 0 (dado real, não bug); seed de estatísticas pode ser adicionado (FASE-05/06).
+
 ---
 
 ## FASE-05 — QUALIDADE: testes, lint, format, healthcheck, seed seguro
