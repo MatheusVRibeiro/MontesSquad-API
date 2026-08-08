@@ -37,10 +37,10 @@ module.exports = {
   async enviarMensagemProjeto(request, response, next) {
     try {
       const { projetoId } = request.params;
-      const { conteudo } = request.body;
+      const conteudo = request.body.conteudo || request.body.content;
       const remetente_id = request.usuarioAutenticado ? request.usuarioAutenticado.id : request.body.remetente_id;
 
-      if (!remetente_id || !conteudo) {
+      if (!remetente_id || !conteudo || !conteudo.trim()) {
         return response.status(400).json({
           sucesso: false,
           message: "remetente_id e conteudo são obrigatórios",
@@ -70,4 +70,4 @@ module.exports = {
       return next(new AppError("Erro ao enviar mensagem", 500, error));
     }
   },
-};
+};

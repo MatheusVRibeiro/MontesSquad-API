@@ -37,6 +37,25 @@ module.exports = {
         });
       }
 
+      // Valida formato do e-mail
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "E-mail inválido",
+          dados: null,
+        });
+      }
+
+      // Valida tamanho mínimo da senha
+      if (typeof senha !== "string" || senha.length < 6) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "A senha deve ter no mínimo 6 caracteres",
+          dados: null,
+        });
+      }
+
       const senhaCriptografada = await bcrypt.hash(senha, 10);
       
       const sql = `
@@ -62,6 +81,13 @@ module.exports = {
         dados
       });
     } catch (error) {
+      if (error.code === "ER_DUP_ENTRY") {
+        return response.status(409).json({
+          sucesso: false,
+          message: "E-mail já cadastrado",
+          dados: null,
+        });
+      }
       return next(new AppError("Erro no cadastro de usuário", 500, error));
     }
   },

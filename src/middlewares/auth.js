@@ -2,7 +2,11 @@ const jwt = require("jsonwebtoken");
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não configurado");
+}
 
 // Middleware para verificar se o usuário está logado
 function verificarToken(request, response, next) {
@@ -69,7 +73,7 @@ async function somenteDonoDoProjeto(request, response, next) {
   }
 
   const { id, projetoId } = request.params;
-  const pId = projetoId || id;
+  const pId = projetoId || id || request.body.projeto_id;
 
   if (!pId) {
     return response.status(400).json({
@@ -171,9 +175,35 @@ async function somenteMembroOuDonoDoProjeto(request, response, next) {
   }
 }
 
+// Middleware para validar se o usuário é o próprio dono do perfil ou administrador
+function somenteProprioOuAdm(request, response, next) {
+  if (!request.usuarioAutenticado) {
+    return response.status(401).json({
+      sucesso: false,
+      message: "Usuário não autenticado",
+      dados: null,
+    });
+  }
+
+  const { id } = request.params;
+  const ehProprio = request.usuarioAutenticado.id == id || Number(request.usuarioAutenticado.id) === Number(id);
+  const ehAdm = request.usuarioAutenticado.tipo === "adm";
+
+  if (!ehProprio && !ehAdm) {
+    return response.status(403).json({
+      sucesso: false,
+      message: "Acesso negado: você só pode editar seu próprio perfil",
+      dados: null,
+    });
+  }
+
+  return next();
+}
+
 module.exports = {
   verificarToken,
   somenteAdm,
   somenteDonoDoProjeto,
   somenteMembroOuDonoDoProjeto,
+  somenteProprioOuAdm,
 };

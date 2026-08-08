@@ -1,10 +1,10 @@
--- 1. Inserir Usuários
+-- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10)
 INSERT INTO usuarios (nome, email, senha, bio, localizacao, tipo) VALUES 
-('Lucas Mendes', 'lucas@email.com', 'senha123', 'Dev Backend focado em APIs.', 'São Paulo, SP', 'membro'),
-('Fernanda Costa', 'fernanda@email.com', 'senha456', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', 'membro'),
-('Roberto Almeida', 'roberto@email.com', 'senha789', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', 'membro'),
-('Juliana Silva', 'juliana@email.com', 'senha012', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', 'membro'),
-('Admin MontesSquad', 'admin@email.com', 'admin123', 'Administrador global do MontesSquad.', 'São Paulo, SP', 'adm');
+('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', 'membro'),
+('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', 'membro'),
+('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', 'membro'),
+('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', 'membro'),
+('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', 'adm');
 
 -- 2. Inserir Habilidades
 INSERT INTO habilidades (nome) VALUES 

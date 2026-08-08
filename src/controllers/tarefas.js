@@ -1,6 +1,9 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 
+const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
+const STATUS_VALIDOS = ["todo", "doing", "done"];
+
 module.exports = {
   async listarTarefas(request, response, next) {
     try {
@@ -50,6 +53,15 @@ module.exports = {
         });
       }
 
+      // Valida prioridade (se fornecida)
+      if (prioridade !== undefined && !PRIORIDADES_VALIDAS.includes(prioridade)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Prioridade inválida (use 'low', 'medium' ou 'high')",
+          dados: null,
+        });
+      }
+
       const sql = `
         INSERT INTO tarefas (projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento)
         VALUES (?, ?, ?, ?, 'todo', ?, ?);
@@ -89,6 +101,23 @@ module.exports = {
     try {
       const { projetoId, tarefaId } = request.params;
       const { titulo, descricao, status, responsavel_id, prioridade, data_vencimento, subtasks } = request.body;
+
+      // Valida prioridade e status (quando fornecidos)
+      if (prioridade !== undefined && !PRIORIDADES_VALIDAS.includes(prioridade)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Prioridade inválida (use 'low', 'medium' ou 'high')",
+          dados: null,
+        });
+      }
+
+      if (status !== undefined && !STATUS_VALIDOS.includes(status)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Status inválido (use 'todo', 'doing' ou 'done')",
+          dados: null,
+        });
+      }
 
       // 1. Atualiza dados da tarefa se fornecidos
       const fields = [];

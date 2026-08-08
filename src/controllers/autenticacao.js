@@ -4,7 +4,15 @@ const nodemailer = require("nodemailer");
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não configurado");
+}
+
+// Hash fixo usado apenas para igualar o tempo de resposta quando o usuário não existe (anti-enumeração por timing)
+const DUMMY_HASH = "$2b$10$ESJhfBKm3xVE5ZuBgn08GuEDNKkN1CXFIMZTIGMRHEew1zDXzu5hu";
+
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 const RESET_SECRET = process.env.JWT_RESET_SECRET || JWT_SECRET;
 const RESET_EXPIRES_IN = process.env.JWT_RESET_EXPIRES_IN || "15m";
@@ -54,18 +62,13 @@ function criarTransporter() {
   });
 }
 
+// Sempre compara com bcrypt — nunca aceita senha em texto puro armazenada no banco
 async function compararSenha(senhaDigitada, senhaArmazenada) {
   if (!senhaDigitada || !senhaArmazenada) {
     return false;
   }
 
-  const senhaPareceHash = senhaArmazenada.startsWith("$2a$") || senhaArmazenada.startsWith("$2b$");
-
-  if (senhaPareceHash) {
-    return bcrypt.compare(senhaDigitada, senhaArmazenada);
-  }
-
-  return senhaDigitada === senhaArmazenada;
+  return bcrypt.compare(senhaDigitada, senhaArmazenada);
 }
 
 module.exports = {
@@ -91,9 +94,12 @@ module.exports = {
       const [rows] = await db.query(sql, [email]);
 
       if (rows.length === 0) {
-        return response.status(404).json({
+        // Anti-enumeração: mesma resposta de credenciais inválidas + comparação dummy
+        // contra hash fixo para igualar o tempo de resposta (não revela se o e-mail existe)
+        await bcrypt.compare(senha, DUMMY_HASH);
+        return response.status(401).json({
           sucesso: false,
-          message: "Usuário não encontrado",
+          message: "Credenciais inválidas",
           dados: null,
         });
       }
@@ -104,7 +110,7 @@ module.exports = {
       if (!senhaValida) {
         return response.status(401).json({
           sucesso: false,
-          message: "Senha inválida",
+          message: "Credenciais inválidas",
           dados: null,
         });
       }
@@ -149,9 +155,10 @@ module.exports = {
       const [rows] = await db.query(sql, [email]);
 
       if (rows.length === 0) {
-        return response.status(404).json({
-          sucesso: false,
-          message: "Usuário não encontrado",
+        // Anti-enumeração: resposta genérica idêntica ao sucesso — não revela se o e-mail existe
+        return response.status(200).json({
+          sucesso: true,
+          message: "Se o e-mail existir, enviaremos um link",
           dados: null,
         });
       }
@@ -162,9 +169,12 @@ module.exports = {
       const transporter = criarTransporter();
 
       if (!transporter) {
-        return response.status(500).json({
-          sucesso: false,
-          message: "Configuração SMTP ausente para envio do e-mail",
+        // Anti-enumeração: responde igual ao caso genérico — não revela se o e-mail existe.
+        // O problema de configuração fica registrado apenas no log do servidor.
+        console.error("Configuração SMTP ausente para envio do e-mail de recuperação");
+        return response.status(200).json({
+          sucesso: true,
+          message: "Se o e-mail existir, enviaremos um link",
           dados: null,
         });
       }
@@ -184,10 +194,8 @@ module.exports = {
 
       return response.status(200).json({
         sucesso: true,
-        message: "E-mail de recuperação enviado com sucesso",
-        dados: {
-          email: usuario.email,
-        },
+        message: "Se o e-mail existir, enviaremos um link",
+        dados: null,
       });
     } catch (error) {
       return next(new AppError("Erro ao recuperar senha", 500, error));

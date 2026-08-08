@@ -4,14 +4,21 @@ const AppError = require("../utils/errors");
 module.exports = {
   async listarHabilidadesUsuario(request, response, next) {
     try {
+      const { usuario_id } = request.query;
 
-      const sql = `
+      let sql = `
           SELECT 
             usuario_id, habilidade_id, nivel
             FROM habilidades_usuario 
-        `;
+      `;
+      const values = [];
 
-      const [row] = await db.query(sql);
+      if (usuario_id) {
+        sql += ` WHERE usuario_id = ?`;
+        values.push(usuario_id);
+      }
+
+      const [row] = await db.query(sql, values);
       const nItens = row.length;
 
       return response.status(200).json({
@@ -54,35 +61,41 @@ module.exports = {
   },
   async editarHabilidadesUsuario(request, response, next) {
     try {
+      const usuario_id = request.body.usuario_id || request.query.usuario_id;
+      const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
+      const nivel = request.body.nivel;
 
-        const { usuario_id, habilidade_id, nivel } = request.body;
-        const { id } = request.params;
+      if (!usuario_id || !habilidade_id) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "usuario_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
 
-        const sql = `
+      const sql = `
         UPDATE habilidades_usuario
-        SET usuario_id = ?, habilidade_id = ?, nivel = ?
-        WHERE usuario_id = ? AND habilidade_id = ?;
-        `;
-        const values = [usuario_id, habilidade_id, nivel, usuario_id, habilidade_id];
-        const [result] = await db.query(sql, values);
+        SET nivel = ?
+        WHERE usuario_id = ? AND habilidade_id = ?
+      `;
+      const values = [nivel, usuario_id, habilidade_id];
+      const [result] = await db.query(sql, values);
 
-        const atualizaDados = await db.query(sql, values);
-        
-        const dados = {
-          usuario_id,
-          habilidade_id,
-          nivel,
-        };
-    
-        if (result.affectedRows === 0) {
-          return response.status(404).json({
-            sucesso: false,
-            message: `Habilidades do usuário não encontrada!`,
-            dados: null,
-          });
-        }
+      const dados = {
+        usuario_id,
+        habilidade_id,
+        nivel,
+      };
+  
+      if (result.affectedRows === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: `Habilidades do usuário não encontrada!`,
+          dados: null,
+        });
+      }
 
-        return response.status(200).json({
+      return response.status(200).json({
         sucesso: true,
         message: `Habilidades do usuário atualizada com sucesso!`,
         dados
@@ -93,23 +106,32 @@ module.exports = {
   },
   async apagarHabilidadesUsuario(request, response, next) {
     try {
-      const { id } = request.params;
+      const usuario_id = request.body.usuario_id || request.query.usuario_id;
+      const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
 
-      const sql = `DELETE FROM habilidades_usuario WHERE usuario_id = ?`;
+      if (!usuario_id || !habilidade_id) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "usuario_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
 
-      const [result] = await db.query(sql, [id]);
+      const sql = `DELETE FROM habilidades_usuario WHERE usuario_id = ? AND habilidade_id = ?`;
+
+      const [result] = await db.query(sql, [usuario_id, habilidade_id]);
 
       if (result.affectedRows === 0) {
         return response.status(404).json({
           sucesso: false,
-          message: `Habilidades do usuário ${id} não encontradas!`,
+          message: `Habilidades do usuário não encontradas!`,
           dados: null,
         });
       }
 
       return response.status(200).json({
         sucesso: true,
-        message: `Habilidades do usuário ${id} deletada com sucesso!`,
+        message: `Habilidades do usuário deletada com sucesso!`,
         dados: null,
       });
     } catch (error) {
@@ -117,4 +139,3 @@ module.exports = {
     }
   },
 };
-

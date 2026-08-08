@@ -1,5 +1,19 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const router = express.Router();
+
+// Anti-brute-force / anti-spam nas rotas públicas sensíveis: máx. 10 requisições por IP a cada 15 minutos
+const limiterRotasPublicas = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    sucesso: false,
+    message: "Muitas tentativas. Tente novamente em 15 minutos.",
+    dados: null,
+  },
+});
 
 const usuariosController = require("../controllers/usuarios");
 const projetosController = require("../controllers/projetos");
@@ -17,20 +31,21 @@ const {
   somenteAdm,
   somenteDonoDoProjeto,
   somenteMembroOuDonoDoProjeto,
+  somenteProprioOuAdm,
 } = require("../middlewares/auth");
 
-// ROTAS AUTENTICAÇÃO (Públicas)
-router.post("/login", autenticacaoController.login);
-router.post("/recuperar-senha", autenticacaoController.recuperarSenha);
-router.post("/resetar-senha", autenticacaoController.resetarSenha);
+// ROTAS AUTENTICAÇÃO (Públicas) — com limite de tentativas
+router.post("/login", limiterRotasPublicas, autenticacaoController.login);
+router.post("/recuperar-senha", limiterRotasPublicas, autenticacaoController.recuperarSenha);
+router.post("/resetar-senha", limiterRotasPublicas, autenticacaoController.resetarSenha);
 
 // ROTAS USUÁRIOS
-// Cadastro é aberto ao público
-router.post("/usuarios", usuariosController.cadastrarUsuario);
+// Cadastro é aberto ao público, mas com limite de requisições por IP
+router.post("/usuarios", limiterRotasPublicas, usuariosController.cadastrarUsuario);
 
 // Apenas usuários logados podem listar e editar perfis. Apenas Adm ou o próprio usuário edita seu perfil.
 router.get("/usuarios", verificarToken, usuariosController.listarUsuarios);
-router.patch("/usuarios/:id", verificarToken, usuariosController.editarUsuario);
+router.patch("/usuarios/:id", verificarToken, somenteProprioOuAdm, usuariosController.editarUsuario);
 router.delete("/usuarios/:id", verificarToken, somenteAdm, usuariosController.apagarUsuario);
 
 // ROTAS PROJETOS

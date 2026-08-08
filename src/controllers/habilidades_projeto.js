@@ -4,14 +4,21 @@ const AppError = require("../utils/errors");
 module.exports = {
   async listarHabilidadesProjeto(request, response, next) {
     try {
+      const { projeto_id } = request.query;
 
-      const sql = `
+      let sql = `
           SELECT 
             projeto_id, habilidade_id
             FROM habilidades_projeto 
-        `;
+      `;
+      const values = [];
 
-      const [row] = await db.query(sql);
+      if (projeto_id) {
+        sql += ` WHERE projeto_id = ?`;
+        values.push(projeto_id);
+      }
+
+      const [row] = await db.query(sql, values);
       const nItens = row.length;
 
       return response.status(200).json({
@@ -53,34 +60,39 @@ module.exports = {
   },
   async editarHabilidadesProjeto(request, response, next) {
     try {
+      const projeto_id = request.body.projeto_id || request.query.projeto_id;
+      const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
 
-        const { projeto_id, habilidade_id } = request.body;
-        const { id } = request.params;
+      if (!projeto_id || !habilidade_id) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "projeto_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
 
-        const sql = `
+      const sql = `
         UPDATE habilidades_projeto
         SET projeto_id = ?, habilidade_id = ?
-        WHERE projeto_id = ? AND habilidade_id = ?;
-        `;
-        const values = [projeto_id, habilidade_id, projeto_id, habilidade_id];
-        const [result] = await db.query(sql, values);
+        WHERE projeto_id = ? AND habilidade_id = ?
+      `;
+      const values = [projeto_id, habilidade_id, projeto_id, habilidade_id];
+      const [result] = await db.query(sql, values);
 
-        const atualizaDados = await db.query(sql, values);
-        
-        const dados = {
-          projeto_id,
-          habilidade_id,
-        };
-    
-        if (result.affectedRows === 0) {
-          return response.status(404).json({
-            sucesso: false,
-            message: `Habilidades do projeto não encontrada!`,
-            dados: null,
-          });
-        }
+      const dados = {
+        projeto_id,
+        habilidade_id,
+      };
+  
+      if (result.affectedRows === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: `Habilidades do projeto não encontrada!`,
+          dados: null,
+        });
+      }
 
-        return response.status(200).json({
+      return response.status(200).json({
         sucesso: true,
         message: `Habilidades do projeto atualizada com sucesso!`,
         dados
@@ -91,23 +103,32 @@ module.exports = {
   },
   async apagarHabilidadesProjeto(request, response, next) {
     try {
-      const { id } = request.params;
+      const projeto_id = request.body.projeto_id || request.query.projeto_id;
+      const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
 
-      const sql = `DELETE FROM habilidades_projeto WHERE projeto_id = ?`;
+      if (!projeto_id || !habilidade_id) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "projeto_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
 
-      const [result] = await db.query(sql, [id]);
+      const sql = `DELETE FROM habilidades_projeto WHERE projeto_id = ? AND habilidade_id = ?`;
+
+      const [result] = await db.query(sql, [projeto_id, habilidade_id]);
 
       if (result.affectedRows === 0) {
         return response.status(404).json({
           sucesso: false,
-          message: `Habilidades do projeto ${id} não encontradas!`,
+          message: `Habilidades do projeto não encontradas!`,
           dados: null,
         });
       }
 
       return response.status(200).json({
         sucesso: true,
-        message: `Habilidades do projeto ${id} deletada com sucesso!`,
+        message: `Habilidades do projeto deletada com sucesso!`,
         dados: null,
       });
     } catch (error) {
@@ -115,4 +136,3 @@ module.exports = {
     }
   },
 };
-

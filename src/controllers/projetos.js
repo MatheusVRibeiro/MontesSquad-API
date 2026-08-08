@@ -42,18 +42,33 @@ module.exports = {
       const titulo = request.body.titulo || request.body.name;
       const descricao = request.body.descricao || request.body.description;
       const status = request.body.status || "aberto";
-      const limite_membros = request.body.limite_membros || request.body.membersLimit || 5;
+      const limiteMembrosBruto = request.body.limite_membros !== undefined
+        ? request.body.limite_membros
+        : request.body.membersLimit;
+      const limite_membros = limiteMembrosBruto !== undefined ? limiteMembrosBruto : 5;
       const repositorio_url = request.body.repositorio_url || request.body.repositorioUrl || null;
       const figma_url = request.body.figma_url || request.body.figmaUrl || null;
       const discord_url = request.body.discord_url || request.body.discordUrl || null;
       const documentacao_url = request.body.documentacao_url || request.body.documentacaoUrl || null;
 
-      if (!titulo) {
+      if (!titulo || !String(titulo).trim()) {
         return response.status(400).json({
           sucesso: false,
           message: "O título do projeto é obrigatório",
           dados: null,
         });
+      }
+
+      // Valida limite de membros (se fornecido): deve ser um número inteiro positivo
+      if (limiteMembrosBruto !== undefined) {
+        const limiteNumero = Number(limiteMembrosBruto);
+        if (!Number.isInteger(limiteNumero) || limiteNumero <= 0) {
+          return response.status(400).json({
+            sucesso: false,
+            message: "limite_membros deve ser um número inteiro positivo",
+            dados: null,
+          });
+        }
       }
 
       const sql = `
@@ -261,106 +276,121 @@ module.exports = {
       }
       projeto.members = members;
 
-      // 4. Busca tarefas do Kanban (com subtarefas)
-      const [tasks] = await db.query(
-        `SELECT t.id, t.titulo AS title, t.descricao AS description, t.status, 
-                u.nome AS assignee, t.prioridade AS priority, t.data_vencimento AS dueDate
-         FROM tarefas t
-         LEFT JOIN usuarios u ON t.responsavel_id = u.id
-         WHERE t.projeto_id = ?`,
-        [pId]
-      );
-
-      for (const t of tasks) {
-        const [subs] = await db.query(
-          "SELECT id, titulo AS title, concluida AS done FROM subtarefas WHERE tarefa_id = ?",
-          [t.id]
-        );
-        t.subtasks = subs.map(s => ({
-          id: String(s.id),
-          title: s.title,
-          done: !!s.done
-        }));
-        t.id = String(t.id);
-        if (t.dueDate) t.dueDate = new Date(t.dueDate).toISOString().split('T')[0];
-      }
-      projeto.tasks = tasks;
-
-      // 5. Busca mensagens do Mural (ordenadas por mais recentes)
-      const [msgRows] = await db.query(
-        `SELECT m.id, u.nome AS author, m.conteudo AS content, m.criado_em AS createdAt
-         FROM mensagens m
-         JOIN usuarios u ON m.remetente_id = u.id
-         WHERE m.projeto_id = ?
-         ORDER BY m.criado_em DESC`,
-        [pId]
-      );
-      projeto.messages = msgRows.map(m => ({
-        id: String(m.id),
-        author: m.author,
-        content: m.content,
-        createdAt: new Date(m.createdAt).toISOString()
-      }));
-
-      // 6. Busca candidaturas (apenas se for o criador do projeto)
+      // 4. Controle de privacidade: apenas o dono e membros da equipe
+      // têm acesso às tarefas, mensagens e candidaturas do projeto
       const isOwner = projeto.criador_id === usuarioLogadoId;
-      if (isOwner) {
-        const [candRows] = await db.query(
-          `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
-           FROM candidaturas c
-           JOIN usuarios u ON c.usuario_id = u.id
-           WHERE c.projeto_id = ?`,
+
+      const [membPrivRows] = await db.query(
+        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
+        [pId, usuarioLogadoId]
+      );
+      const isMember = isOwner || membPrivRows.length > 0;
+
+      if (!isMember) {
+        projeto.tasks = [];
+        projeto.messages = [];
+        projeto.applications = [];
+      } else {
+        // 4.1 Busca tarefas do Kanban (com subtarefas)
+        const [tasks] = await db.query(
+          `SELECT t.id, t.titulo AS title, t.descricao AS description, t.status, 
+                  u.nome AS assignee, t.prioridade AS priority, t.data_vencimento AS dueDate
+           FROM tarefas t
+           LEFT JOIN usuarios u ON t.responsavel_id = u.id
+           WHERE t.projeto_id = ?`,
           [pId]
         );
-        
-        const applications = [];
-        for (const c of candRows) {
-          const [skillRows] = await db.query(
-            `SELECT h.nome FROM habilidades_usuario hu 
-             JOIN habilidades h ON hu.habilidade_id = h.id 
-             WHERE hu.usuario_id = (SELECT usuario_id FROM candidaturas WHERE id = ?)`,
-            [c.id]
+
+        for (const t of tasks) {
+          const [subs] = await db.query(
+            "SELECT id, titulo AS title, concluida AS done FROM subtarefas WHERE tarefa_id = ?",
+            [t.id]
           );
-          applications.push({
-            id: String(c.id),
-            name: c.nome,
-            message: c.mensagem,
-            skills: skillRows.map(s => s.nome),
-            createdAt: new Date(c.createdAt).toISOString(),
-            status: c.status
+          t.subtasks = subs.map(s => ({
+            id: String(s.id),
+            title: s.title,
+            done: !!s.done
+          }));
+          t.id = String(t.id);
+          if (t.dueDate) t.dueDate = new Date(t.dueDate).toISOString().split('T')[0];
+        }
+        projeto.tasks = tasks;
+
+        // 4.2 Busca mensagens do Mural (ordenadas por mais recentes)
+        const [msgRows] = await db.query(
+          `SELECT m.id, u.nome AS author, m.conteudo AS content, m.criado_em AS createdAt
+           FROM mensagens m
+           JOIN usuarios u ON m.remetente_id = u.id
+           WHERE m.projeto_id = ?
+           ORDER BY m.criado_em DESC`,
+          [pId]
+        );
+        projeto.messages = msgRows.map(m => ({
+          id: String(m.id),
+          author: m.author,
+          content: m.content,
+          createdAt: new Date(m.createdAt).toISOString()
+        }));
+
+        // 4.3 Busca candidaturas (todas para o dono; apenas a própria para membros)
+        if (isOwner) {
+          const [candRows] = await db.query(
+            `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
+             FROM candidaturas c
+             JOIN usuarios u ON c.usuario_id = u.id
+             WHERE c.projeto_id = ?`,
+            [pId]
+          );
+
+          const applications = [];
+          for (const c of candRows) {
+            const [skillRows] = await db.query(
+              `SELECT h.nome FROM habilidades_usuario hu 
+               JOIN habilidades h ON hu.habilidade_id = h.id 
+               WHERE hu.usuario_id = (SELECT usuario_id FROM candidaturas WHERE id = ?)`,
+              [c.id]
+            );
+            applications.push({
+              id: String(c.id),
+              name: c.nome,
+              message: c.mensagem,
+              skills: skillRows.map(s => s.nome),
+              createdAt: new Date(c.createdAt).toISOString(),
+              status: c.status
+            });
+          }
+
+          projeto.applications = applications.map(app => {
+            let mappedAppStatus = "pending";
+            if (app.status === "aceito") mappedAppStatus = "approved";
+            if (app.status === "rejeitado") mappedAppStatus = "rejected";
+            return {
+              ...app,
+              status: mappedAppStatus
+            };
+          });
+        } else {
+          const [myCandRows] = await db.query(
+            `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
+             FROM candidaturas c
+             JOIN usuarios u ON c.usuario_id = u.id
+             WHERE c.projeto_id = ? AND c.usuario_id = ?`,
+            [pId, usuarioLogadoId]
+          );
+          projeto.applications = myCandRows.map(c => {
+            let mappedAppStatus = "pending";
+            if (c.status === "aceito") mappedAppStatus = "approved";
+            if (c.status === "rejeitado") mappedAppStatus = "rejected";
+            return {
+              id: String(c.id),
+              name: c.nome,
+              message: c.mensagem,
+              skills: [],
+              createdAt: new Date(c.createdAt).toISOString(),
+              status: mappedAppStatus
+            };
           });
         }
-        
-        projeto.applications = applications.map(app => {
-          let mappedAppStatus = "pending";
-          if (app.status === "aceito") mappedAppStatus = "approved";
-          if (app.status === "rejeitado") mappedAppStatus = "rejected";
-          return {
-            ...app,
-            status: mappedAppStatus
-          };
-        });
-      } else {
-        const [myCandRows] = await db.query(
-          `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
-           FROM candidaturas c
-           JOIN usuarios u ON c.usuario_id = u.id
-           WHERE c.projeto_id = ? AND c.usuario_id = ?`,
-          [pId, usuarioLogadoId]
-        );
-        projeto.applications = myCandRows.map(c => {
-          let mappedAppStatus = "pending";
-          if (c.status === "aceito") mappedAppStatus = "approved";
-          if (c.status === "rejeitado") mappedAppStatus = "rejected";
-          return {
-            id: String(c.id),
-            name: c.nome,
-            message: c.mensagem,
-            skills: [],
-            createdAt: new Date(c.createdAt).toISOString(),
-            status: mappedAppStatus
-          };
-        });
       }
 
       projeto.longDescription = (projeto.description || "") + 
