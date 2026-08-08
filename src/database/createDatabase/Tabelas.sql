@@ -82,6 +82,21 @@ CREATE TABLE funcoes_usuario (
     FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- 5c. Vagas do Projeto (Evolução ETAPA 4 — papéis/vagas necessárias no projeto)
+CREATE TABLE vagas_projeto (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    projeto_id INT NOT NULL,
+    funcao_id INT NOT NULL,
+    quantidade INT NOT NULL DEFAULT 1,
+    preenchidas INT NOT NULL DEFAULT 0,
+    descricao TEXT NULL,
+    nivel_desejado ENUM('iniciante', 'intermediario', 'avancado', 'qualquer') DEFAULT 'qualquer',
+    status ENUM('aberta', 'fechada') DEFAULT 'aberta',
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
+    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
 -- 6. Candidaturas (Match)
 CREATE TABLE candidaturas (
     id INT AUTO_INCREMENT PRIMARY KEY,

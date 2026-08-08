@@ -46,6 +46,13 @@ INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES
 (3, 2, 'alto'),          -- Roberto: Frontend
 (4, 3, 'alto');          -- Juliana: Full Stack
 
+-- 4c. Inserir Vagas dos Projetos (Evolução ETAPA 4 — papéis/vagas necessárias)
+INSERT INTO vagas_projeto (projeto_id, funcao_id, quantidade, preenchidas, descricao, nivel_desejado, status) VALUES 
+(1, 1, 2, 1, 'APIs REST e integrações com MySQL.', 'avancado', 'aberta'),  -- API Frota: 2 Backend, 1 preenchida
+(1, 3, 1, 1, 'Apoio no full stack quando necessário.', 'intermediario', 'aberta'), -- API Frota: 1 Full Stack
+(2, 8, 1, 0, 'Pipeline de dados e dashboards de BI.', 'avancado', 'aberta'), -- Dashboard: 1 Data
+(3, 2, 2, 0, 'Telas responsivas com React.', 'intermediario', 'aberta');   -- Delivery: 2 Frontend
+
 -- 5. Inserir Habilidades Exigidas nos Projetos
 INSERT INTO habilidades_projeto (projeto_id, habilidade_id) VALUES 
 (1, 1), -- API exige Node.js

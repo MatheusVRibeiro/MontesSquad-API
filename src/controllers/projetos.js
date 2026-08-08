@@ -257,6 +257,18 @@ module.exports = {
       const [techRows] = await db.query(sqlTechs, [pId]);
       projeto.technologies = techRows.map(row => row.nome);
 
+      // 2b. Busca vagas do projeto (Evolução ETAPA 4 — papéis/vagas necessárias)
+      const sqlVagas = `
+        SELECT v.id, v.funcao_id, f.nome AS funcao_nome, v.quantidade, v.preenchidas,
+               v.descricao, v.nivel_desejado, v.status, v.criado_em
+        FROM vagas_projeto v
+        JOIN funcoes f ON v.funcao_id = f.id
+        WHERE v.projeto_id = ?
+        ORDER BY v.id
+      `;
+      const [vagaRows] = await db.query(sqlVagas, [pId]);
+      projeto.vagas = vagaRows;
+
       // 3. Busca membros da equipe (incluindo o proprietário/criador)
       const sqlMembers = `
         SELECT u.id, u.nome, 'Membro' AS role

@@ -27,6 +27,7 @@ const githubAuthController = require("../controllers/githubAuth");
 const candidaturasController = require("../controllers/candidaturas");
 const membrosController = require("../controllers/membros");
 const tarefasController = require("../controllers/tarefas");
+const vagasProjetoController = require("../controllers/vagasProjeto");
 const notificacoesController = require("../controllers/notificacoes");
 const reputacaoController = require("../controllers/reputacao");
 
@@ -122,6 +123,13 @@ router.patch("/projetos/:projetoId/candidaturas/:candidaturaId", verificarToken,
 router.get("/projetos/:projetoId/membros", verificarToken, membrosController.listarMembros);
 // Somente o dono do projeto remove membros do squad
 router.delete("/projetos/:projetoId/membros/:usuarioId", verificarToken, somenteDonoDoProjeto, membrosController.removerMembro);
+
+// ROTAS VAGAS DO PROJETO (Evolução ETAPA 4 — papéis/vagas necessárias)
+// Membro/dono consultam as vagas; somente o owner cria, edita ou apaga
+router.get("/projetos/:projetoId/vagas", verificarToken, somenteMembroOuDonoDoProjeto, vagasProjetoController.listarVagas);
+router.post("/projetos/:projetoId/vagas", verificarToken, somenteDonoDoProjeto, vagasProjetoController.criarVaga);
+router.patch("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoDoProjeto, vagasProjetoController.atualizarVaga);
+router.delete("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoDoProjeto, vagasProjetoController.apagarVaga);
 
 // ROTAS KANBAN TAREFAS
 // Somente dono ou membros do squad podem ver tarefas
