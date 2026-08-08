@@ -137,4 +137,33 @@ describe("GitHub Auth — cadastro/login (Evolução ETAPA 1)", () => {
     const res = await request(app).post("/auth/github/complete-profile").send({ nome: "X" });
     expect(res.status).toBe(401);
   });
+
+  it("falha do GitHub (exchange token) → erro tratável 502", async () => {
+    // Sobrescreve o stub do githubOAuth ANTES de reconstruir o app (require cache)
+    const { Module: Mod } = await import("node:module");
+    const origLoad = Mod._load;
+    Mod._load = function (request, parent, isMain) {
+      if (request.endsWith("services/githubOAuth")) {
+        return {
+          buildGitHubAuthorizationUrl: (state) => `https://github.com/login/oauth/authorize?state=${state}`,
+          exchangeCodeForAccessToken: async () => { throw new Error("GitHub indisponível"); },
+          fetchGitHubUser: async () => { throw new Error("GitHub indisponível"); },
+          fetchGitHubPrimaryEmail: async () => null,
+        };
+      }
+      return origLoad.apply(this, arguments);
+    };
+
+    app = buildApp(criarPoolComUsuarios());
+
+    const { createRequire: cr2 } = await import("node:module");
+    const jwtMod2 = cr2(import.meta.url)("jsonwebtoken");
+    const state = jwtMod2.sign({ oauth: "github-auth", uid: null }, process.env.JWT_SECRET, { expiresIn: "10m" });
+
+    const res = await request(app)
+      .get("/auth/github/callback")
+      .query({ code: "c-falha", state });
+    expect([500, 502]).toContain(res.status);
+    expect(res.body.sucesso).toBe(false);
+  });
 });
