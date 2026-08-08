@@ -152,6 +152,95 @@ async function disconnect(request, response, next) {
 }
 
 /**
+ * GET /projetos/:projetoId/tarefas/:tarefaId/github — status GitHub da task (ETAPA 8).
+ * Membro/dono.
+ */
+async function taskGithubStatus(request, response, next) {
+  try {
+    const { projetoId, tarefaId } = request.params;
+    const [rows] = await db.query(
+      `SELECT t.github_branch, t.github_pr_number, t.github_pr_url, t.github_pr_status,
+              t.github_last_activity_at, t.completion_source, t.completed_at
+       FROM tarefas t WHERE t.id = ? AND t.projeto_id = ? LIMIT 1`,
+      [tarefaId, projetoId]
+    );
+    if (rows.length === 0) {
+      return response.status(404).json({ sucesso: false, message: "Tarefa não encontrada", dados: null });
+    }
+    const t = rows[0];
+    return response.status(200).json({
+      sucesso: true,
+      message: "Status GitHub da tarefa",
+      dados: {
+        github_branch: t.github_branch ?? null,
+        github_pr_number: t.github_pr_number ?? null,
+        github_pr_url: t.github_pr_url ?? null,
+        github_pr_status: t.github_pr_status ?? null,
+        github_last_activity_at: t.github_last_activity_at ?? null,
+        completion_source: t.completion_source ?? null,
+        completed_at: t.completed_at ?? null,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
+ * GET /projetos/:projetoId/tarefas/:tarefaId/commits — commits da branch da task (ETAPA 8).
+ * Membro/dono.
+ */
+async function taskCommits(request, response, next) {
+  try {
+    const { projetoId, tarefaId } = request.params;
+
+    // Resolve a branch da task
+    const [taskRows] = await db.query(
+      `SELECT t.github_branch, p.github_repository_id AS repository_id
+       FROM tarefas t JOIN projetos p ON p.id = t.projeto_id
+       WHERE t.id = ? AND t.projeto_id = ? LIMIT 1`,
+      [tarefaId, projetoId]
+    );
+    if (taskRows.length === 0) {
+      return response.status(404).json({ sucesso: false, message: "Tarefa não encontrada", dados: null });
+    }
+    const { github_branch: branch, repository_id: repositoryId } = taskRows[0];
+
+    if (!repositoryId || !branch) {
+      return response.status(200).json({ sucesso: true, message: "Sem GitHub vinculado", nItens: 0, dados: [] });
+    }
+
+    const [commits] = await db.query(
+      `SELECT sha, mensagem, autor, login, email, url, commit_em, branch
+       FROM github_commits
+       WHERE repository_id = ? AND branch = ?
+       ORDER BY commit_em DESC
+       LIMIT 50`,
+      [repositoryId, branch]
+    );
+
+    return response.status(200).json({
+      sucesso: true,
+      message: "Commits da tarefa",
+      nItens: commits.length,
+      dados: commits.map((c) => ({
+        sha: c.sha,
+        sha_curto: String(c.sha).slice(0, 7),
+        mensagem: c.mensagem,
+        autor: c.autor,
+        login: c.login,
+        email: c.email,
+        url: c.url,
+        commit_em: c.commit_em,
+        branch: c.branch,
+      })),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
  * POST /projetos/:projetoId/github/repository — conecta um repositório ao projeto.
  * Somente owner. O backend consulta o GitHub (nunca confia no full_name do browser).
  */
@@ -377,4 +466,6 @@ module.exports = {
   callback,
   disconnect,
   trocarCodePorUsuarioGitHub,
+  taskGithubStatus,
+  taskCommits,
 };

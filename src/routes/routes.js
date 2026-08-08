@@ -138,4 +138,8 @@ router.get("/github/connect", verificarToken, githubController.connect);
 router.get("/github/callback", githubController.callback); // público (GitHub redireciona)
 router.delete("/github/disconnect", verificarToken, githubController.disconnect);
 
+// Status GitHub e commits da tarefa (ETAPA 8) — membro/dono
+router.get("/projetos/:projetoId/tarefas/:tarefaId/github", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskGithubStatus);
+router.get("/projetos/:projetoId/tarefas/:tarefaId/commits", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskCommits);
+
 module.exports = router;
