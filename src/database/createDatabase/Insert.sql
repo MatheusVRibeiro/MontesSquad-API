@@ -60,12 +60,12 @@ INSERT INTO habilidades_projeto (projeto_id, habilidade_id) VALUES
 (3, 2), -- Delivery exige React
 (4, 4); -- Cursos exige Docker
 
--- 6. Inserir Candidaturas
-INSERT INTO candidaturas (usuario_id, projeto_id, status, mensagem) VALUES 
-(2, 1, 'pendente', 'Gostaria de contribuir com a estrutura de banco de dados e rotas complexas.'),
-(3, 1, 'aceito', 'Consigo codar as telas e integrar com a API.'),
-(4, 2, 'aceito', 'Tenho disponibilidade para configurar as pipelines de CI/CD.'),
-(1, 3, 'rejeitado', 'Foco em backend Node se precisarem.');
+-- 6. Inserir Candidaturas (Evolução ETAPA 5 — vaga_id vincula a candidatura a uma vaga do projeto)
+INSERT INTO candidaturas (usuario_id, projeto_id, vaga_id, status, mensagem) VALUES 
+(2, 1, 1, 'pendente', 'Gostaria de contribuir com a estrutura de banco de dados e rotas complexas.'),
+(3, 1, 2, 'aceito', 'Consigo codar as telas e integrar com a API.'),
+(4, 2, 3, 'aceito', 'Tenho disponibilidade para configurar as pipelines de CI/CD.'),
+(1, 3, 4, 'rejeitado', 'Foco em backend Node se precisarem.');
 
 -- 7. Inserir Membros nas Equipes
 INSERT INTO membros_equipe (usuario_id, projeto_id, funcao) VALUES 

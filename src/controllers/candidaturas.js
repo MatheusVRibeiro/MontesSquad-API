@@ -6,7 +6,7 @@ module.exports = {
   async candidatarSe(request, response, next) {
     try {
       const { projetoId } = request.params;
-      const { mensagem } = request.body;
+      const { vaga_id, mensagem } = request.body;
       const usuarioId = request.usuarioAutenticado.id;
 
       // Verifica se o projeto existe
@@ -31,7 +31,20 @@ module.exports = {
         });
       }
 
-      // Verifica se já existe uma candidatura pendente ou aceita
+      // Usuário já membro do squad não pode se candidatar novamente (ETAPA 5)
+      const [membroRows] = await db.query(
+        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
+        [projetoId, usuarioId]
+      );
+      if (membroRows.length > 0) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Você já é membro deste projeto",
+          dados: null,
+        });
+      }
+
+      // Candidatura duplicada: pendente → 409; aceita → já membro (400)
       const [candidaturaExist] = await db.query(
         "SELECT id, status FROM candidaturas WHERE usuario_id = ? AND projeto_id = ?",
         [usuarioId, projetoId]
@@ -40,7 +53,7 @@ module.exports = {
       if (candidaturaExist.length > 0) {
         const c = candidaturaExist[0];
         if (c.status === "pendente") {
-          return response.status(400).json({
+          return response.status(409).json({
             sucesso: false,
             message: "Você já possui uma candidatura pendente para este projeto",
             dados: null,
@@ -54,11 +67,48 @@ module.exports = {
         }
       }
 
+      // Vaga opcional (ETAPA 5 — candidatura direcionada por vaga)
+      let vagaIdFinal = null;
+      if (vaga_id !== undefined && vaga_id !== null && vaga_id !== "") {
+        const vagaIdNum = Number(vaga_id);
+        if (!Number.isInteger(vagaIdNum) || vagaIdNum <= 0) {
+          return response.status(400).json({
+            sucesso: false,
+            message: "vaga_id deve ser um número inteiro positivo",
+            dados: null,
+          });
+        }
+
+        // Vaga deve pertencer ao projeto e estar aberta
+        const [vagaRows] = await db.query(
+          "SELECT id, projeto_id, status FROM vagas_projeto WHERE id = ? AND projeto_id = ? LIMIT 1",
+          [vagaIdNum, projetoId]
+        );
+        if (
+          vagaRows.length === 0 ||
+          Number(vagaRows[0].projeto_id) !== Number(projetoId)
+        ) {
+          return response.status(400).json({
+            sucesso: false,
+            message: "Vaga não pertence a este projeto",
+            dados: null,
+          });
+        }
+        if (vagaRows[0].status !== "aberta") {
+          return response.status(400).json({
+            sucesso: false,
+            message: "Vaga não está aberta",
+            dados: null,
+          });
+        }
+        vagaIdFinal = vagaIdNum;
+      }
+
       const sql = `
-        INSERT INTO candidaturas (usuario_id, projeto_id, status, mensagem)
-        VALUES (?, ?, 'pendente', ?);
+        INSERT INTO candidaturas (usuario_id, projeto_id, vaga_id, status, mensagem)
+        VALUES (?, ?, ?, 'pendente', ?);
       `;
-      const [result] = await db.query(sql, [usuarioId, projetoId, mensagem]);
+      const [result] = await db.query(sql, [usuarioId, projetoId, vagaIdFinal, mensagem]);
 
       // Notifica o dono do projeto sobre a nova candidatura
       if (projetoExist[0].criador_id !== usuarioId) {
@@ -78,6 +128,7 @@ module.exports = {
           id: result.insertId,
           usuario_id: usuarioId,
           projeto_id: projetoId,
+          vaga_id: vagaIdFinal,
           status: "pendente",
           mensagem,
         },
@@ -93,9 +144,13 @@ module.exports = {
 
       const sql = `
         SELECT c.id, c.usuario_id, c.status, c.mensagem, c.criado_em,
-               u.nome AS usuario_nome, u.bio AS usuario_bio
+               c.vaga_id,
+               u.nome AS usuario_nome, u.bio AS usuario_bio,
+               v.funcao_id, f.nome AS funcao_nome
         FROM candidaturas c
         JOIN usuarios u ON c.usuario_id = u.id
+        LEFT JOIN vagas_projeto v ON c.vaga_id = v.id
+        LEFT JOIN funcoes f ON v.funcao_id = f.id
         WHERE c.projeto_id = ? AND c.status = 'pendente'
       `;
 
@@ -196,6 +251,29 @@ module.exports = {
               "INSERT INTO membros_equipe (usuario_id, projeto_id, funcao) VALUES (?, ?, ?)",
               [candidatura.usuario_id, projetoId, "Membro"]
             );
+
+            // ETAPA 5 — candidatura por vaga: incrementa a ocupação da vaga
+            // e fecha a vaga quando preenchidas >= quantidade
+            if (candidatura.vaga_id) {
+              await connection.query(
+                "UPDATE vagas_projeto SET preenchidas = preenchidas + 1 WHERE id = ?",
+                [candidatura.vaga_id]
+              );
+
+              const [vagaRows] = await connection.query(
+                "SELECT quantidade, preenchidas FROM vagas_projeto WHERE id = ? LIMIT 1",
+                [candidatura.vaga_id]
+              );
+              if (
+                vagaRows.length > 0 &&
+                Number(vagaRows[0].preenchidas) >= Number(vagaRows[0].quantidade)
+              ) {
+                await connection.query(
+                  "UPDATE vagas_projeto SET status = 'fechada' WHERE id = ?",
+                  [candidatura.vaga_id]
+                );
+              }
+            }
           }
         }
 

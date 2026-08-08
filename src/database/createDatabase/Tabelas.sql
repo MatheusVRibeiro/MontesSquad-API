@@ -102,11 +102,13 @@ CREATE TABLE candidaturas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id INT,
     projeto_id INT,
+    vaga_id INT NULL,
     status ENUM('pendente', 'aceito', 'rejeitado') DEFAULT 'pendente',
     mensagem TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE
+    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
+    FOREIGN KEY (vaga_id) REFERENCES vagas_projeto(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- 7. Membros da Equipe (Squad)

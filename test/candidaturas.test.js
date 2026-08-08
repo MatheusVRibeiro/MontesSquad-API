@@ -14,8 +14,13 @@ const pool = criarPoolFake([
     resposta: () => [[], []],
   },
   {
-    // INSERT INTO candidaturas (usuario_id, projeto_id, status, mensagem)
-    match: (sql) => /^insert into candidaturas \(usuario_id, projeto_id, status, mensagem\) values \(\?, \?, 'pendente', \?\)$/.test(sql),
+    // ETAPA 5 — SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? (já membro)
+    match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \?$/.test(sql),
+    resposta: () => [[], []],
+  },
+  {
+    // ETAPA 5 — INSERT INTO candidaturas (usuario_id, projeto_id, vaga_id, status, mensagem)
+    match: (sql) => /^insert into candidaturas \(usuario_id, projeto_id, vaga_id, status, mensagem\) values \(\?, \?, \?, 'pendente', \?\)$/.test(sql),
     resposta: () => [{ insertId: 77, affectedRows: 1 }, []],
   },
   {
