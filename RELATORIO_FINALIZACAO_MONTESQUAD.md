@@ -323,6 +323,13 @@
 
 **Validação da fase:** `npm test` (back+front), `npm run lint`, `npm run build`, `curl /health`.
 
+**✅ STATUS 2026-08-08 — FASE-05 CONCLUÍDA (5.A–5.D, verificações reais):**
+- ✅ 5.A — Suíte backend **Vitest + supertest** (`test/`, 10 arquivos, **32/32 testes verdes** em 2.16s) com **pool mockado** (stub de `require.cache` + factory em `test/helpers/bootstrap.js` — NUNCA toca o MySQL da Hostinger). Cobre: auth (anti-enumeração 401 idêntico), IDOR 403, projetos (vínculo membros_equipe + tecnologias array), candidaturas (notificação application), mural (content), tarefas (membro + notificação task), habilidades, reputação, notificações, health.
+- ✅ 5.B — Suíte frontend **Vitest** (`vitest.config.ts` + 4 `*.test.ts`: projects/notifications/reputation/perfil) — **29/29 testes verdes**, mocks de axios (`vi.mock ./api`).
+- ✅ 5.C — **`npm run lint` → 0 erros** (7 warnings react-refresh): `.prettierrc` com `endOfLine: "auto"` eliminou ~9.800 erros CRLF **sem reescrever o repo**; 4 `any` de `projectDetail.ts` tipados com contratos concretos (`ApiResponse<...>`).
+- ✅ 5.D — `GET /health` (SELECT 1, try/catch), `.env.example` completo (sem credenciais reais), script `db:setup` (migrar_fase01 + migrar_fase02 — NÃO executado, só referenciado).
+- **Commits:** backend `642b188` + frontend `b1d5591` — push main.
+
 ---
 
 ## FASE-06 — VALIDAÇÃO FINAL NO NAVEGADOR (E2E manual)
