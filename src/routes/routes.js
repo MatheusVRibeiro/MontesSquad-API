@@ -22,6 +22,7 @@ const habilidadesUsuarioController = require("../controllers/habilidades_usuario
 const habilidadesProjetoController = require("../controllers/habilidades_projeto");
 const mensagensController = require("../controllers/mensagens");
 const autenticacaoController = require("../controllers/autenticacao");
+const githubAuthController = require("../controllers/githubAuth");
 const candidaturasController = require("../controllers/candidaturas");
 const membrosController = require("../controllers/membros");
 const tarefasController = require("../controllers/tarefas");
@@ -38,6 +39,11 @@ const {
 
 // ROTAS AUTENTICAÇÃO (Públicas) — com limite de tentativas
 router.post("/login", limiterRotasPublicas, autenticacaoController.login);
+
+// ROTAS PÚBLICAS — GitHub Auth (Evolução ETAPA 1: cadastro/login com GitHub)
+router.get("/auth/github", githubAuthController.iniciarAuthGitHub);
+router.get("/auth/github/callback", githubAuthController.callbackAuthGitHub); // GitHub redireciona
+router.post("/auth/github/complete-profile", verificarToken, githubAuthController.completarPerfilGitHub);
 router.post("/recuperar-senha", limiterRotasPublicas, autenticacaoController.recuperarSenha);
 router.post("/resetar-senha", limiterRotasPublicas, autenticacaoController.resetarSenha);
 
