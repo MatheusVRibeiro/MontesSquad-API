@@ -4,6 +4,7 @@ DROP TABLE IF EXISTS github_pull_requests;
 DROP TABLE IF EXISTS github_commits;
 DROP TABLE IF EXISTS notificacoes;
 DROP TABLE IF EXISTS subtarefas;
+DROP TABLE IF EXISTS habilidades_tarefa;
 DROP TABLE IF EXISTS tarefas;
 DROP TABLE IF EXISTS conquistas_usuario;
 DROP TABLE IF EXISTS conquistas;

@@ -187,9 +187,19 @@ CREATE TABLE tarefas (
     concluida_em DATETIME NULL,
     assumida_em DATETIME NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    dificuldade ENUM('iniciante', 'intermediaria', 'avancada') DEFAULT 'intermediaria' NOT NULL,
     INDEX idx_tarefas_projeto_github_branch (projeto_id, github_branch),
     FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
     FOREIGN KEY (responsavel_id) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- 11b. Habilidades da Tarefa (Evolução ETAPA 7 — tasks com habilidades e dificuldade)
+CREATE TABLE habilidades_tarefa (
+    tarefa_id INT NOT NULL,
+    habilidade_id INT NOT NULL,
+    PRIMARY KEY (tarefa_id, habilidade_id),
+    FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
+    FOREIGN KEY (habilidade_id) REFERENCES habilidades(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- 8. GitHub — Commits vinculados a tarefas

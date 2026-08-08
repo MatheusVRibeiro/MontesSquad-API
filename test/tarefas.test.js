@@ -14,9 +14,14 @@ const pool = criarPoolFake([
     resposta: (params) => (params[1] === 5 ? [[], []] : [[{ id: 9 }], []]),
   },
   {
-    // INSERT INTO tarefas (... status 'todo', prioridade, data_vencimento)
-    match: (sql) => /^insert into tarefas \(projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento\) values \(\?, \?, \?, \?, 'todo', \?, \?\)$/.test(sql),
+    // INSERT INTO tarefas (... status 'todo', prioridade, data_vencimento, dificuldade)
+    match: (sql) => /^insert into tarefas \(projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento, dificuldade\) values \(\?, \?, \?, \?, 'todo', \?, \?, \?\)$/.test(sql),
     resposta: () => [{ insertId: 55, affectedRows: 1 }, []],
+  },
+  {
+    // ETAPA 7: carregarHabilidadesTarefa (JOIN habilidades_tarefa → habilidades)
+    match: (sql) => /^select h\.nome from habilidades_tarefa ht join habilidades h on h\.id = ht\.habilidade_id where ht\.tarefa_id = \? order by h\.nome$/.test(sql),
+    resposta: () => [[], []],
   },
   {
     // ETAPA 7: SELECT github_repository_id do projeto (após criar tarefa)

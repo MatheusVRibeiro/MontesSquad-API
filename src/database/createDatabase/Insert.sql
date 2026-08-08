@@ -113,13 +113,21 @@ INSERT INTO conquistas_usuario (usuario_id, conquista_id) VALUES
 (4, 1), (4, 6);
 
 -- 13. Inserir Tarefas do Kanban
-INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento) VALUES
-(1, 1, 1, 'Definir escopo do MVP', 'Mapear as features essenciais do projeto para o lançamento inicial.', 'done', 'high', '2026-06-15'),
-(2, 1, NULL, 'Configurar repositório e CI', 'Configurar o GitHub Actions e ambiente local.', 'done', 'medium', '2026-06-18'),
-(3, 1, 3, 'Modelar banco de dados', 'Desenhar o diagrama de entidades e criar o script SQL.', 'doing', 'high', '2026-06-25'),
-(4, 1, NULL, 'Tela de listagem de projetos', 'Criar os componentes do feed de projetos do front-end.', 'doing', 'medium', '2026-06-30'),
-(5, 1, NULL, 'Sistema de candidaturas', 'Implementar modal e formulário de inscrição rápido.', 'todo', 'low', '2026-07-05'),
-(6, 1, NULL, 'Deploy em staging', 'Subir a primeira versão estável na nuvem.', 'todo', 'high', '2026-07-10');
+INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento, dificuldade) VALUES
+(1, 1, 1, 'Definir escopo do MVP', 'Mapear as features essenciais do projeto para o lançamento inicial.', 'done', 'high', '2026-06-15', 'iniciante'),
+(2, 1, NULL, 'Configurar repositório e CI', 'Configurar o GitHub Actions e ambiente local.', 'done', 'medium', '2026-06-18', 'intermediaria'),
+(3, 1, 3, 'Modelar banco de dados', 'Desenhar o diagrama de entidades e criar o script SQL.', 'doing', 'high', '2026-06-25', 'avancada'),
+(4, 1, NULL, 'Tela de listagem de projetos', 'Criar os componentes do feed de projetos do front-end.', 'doing', 'medium', '2026-06-30', 'intermediaria'),
+(5, 1, NULL, 'Sistema de candidaturas', 'Implementar modal e formulário de inscrição rápido.', 'todo', 'low', '2026-07-05', 'intermediaria'),
+(6, 1, NULL, 'Deploy em staging', 'Subir a primeira versão estável na nuvem.', 'todo', 'high', '2026-07-10', 'avancada');
+
+-- 13b. Habilidades das Tarefas (Evolução ETAPA 7)
+INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES
+(2, 1),
+(3, 1),
+(4, 2),
+(5, 1),
+(6, 4);
 
 -- 14. Inserir Subtarefas das Tarefas
 INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES

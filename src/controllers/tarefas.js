@@ -4,6 +4,34 @@ const { criarNotificacao } = require("./notificacoes");
 
 const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
 const STATUS_VALIDOS = ["todo", "doing", "review", "done"];
+const DIFICULDADES_VALIDAS = ["iniciante", "intermediaria", "avancada"];
+
+// ETAPA 7: carrega os NOMES das habilidades vinculadas a uma tarefa (JOIN
+// habilidades_tarefa → habilidades). Usado em criar/atualizar (uma tarefa).
+async function carregarHabilidadesTarefa(db, tarefaId) {
+  const [rows] = await db.query(
+    `SELECT h.nome
+     FROM habilidades_tarefa ht
+     JOIN habilidades h ON h.id = ht.habilidade_id
+     WHERE ht.tarefa_id = ?
+     ORDER BY h.nome`,
+    [tarefaId]
+  );
+  return rows.map((r) => r.nome);
+}
+
+// ETAPA 7: valida o array de ids de habilidades (quando informado). Retorna a
+// mensagem de erro ou null quando válido.
+function validarHabilidades(habilidades) {
+  if (habilidades === undefined) return null;
+  if (!Array.isArray(habilidades)) {
+    return "habilidades deve ser um array de ids";
+  }
+  if (habilidades.some((id) => !Number.isInteger(Number(id)) || Number(id) <= 0)) {
+    return "habilidades deve conter apenas ids válidos";
+  }
+  return null;
+}
 
 module.exports = {
   async listarTarefas(request, response, next) {
@@ -30,6 +58,25 @@ module.exports = {
         }));
       }
 
+      // ETAPA 7: carrega as habilidades (nomes) de todas as tarefas do projeto
+      // em uma única query (JOIN habilidades_tarefa → habilidades) e agrupa.
+      const [habRows] = await db.query(
+        `SELECT ht.tarefa_id, h.nome
+         FROM habilidades_tarefa ht
+         JOIN habilidades h ON h.id = ht.habilidade_id
+         JOIN tarefas t ON t.id = ht.tarefa_id
+         WHERE t.projeto_id = ?
+         ORDER BY h.nome`,
+        [projetoId]
+      );
+      const habilidadesPorTarefa = {};
+      for (const row of habRows) {
+        (habilidadesPorTarefa[row.tarefa_id] ||= []).push(row.nome);
+      }
+      for (const t of tasks) {
+        t.habilidades = habilidadesPorTarefa[t.id] || [];
+      }
+
       return response.status(200).json({
         sucesso: true,
         message: "Lista de tarefas do Kanban",
@@ -44,7 +91,7 @@ module.exports = {
   async criarTarefa(request, response, next) {
     try {
       const { projetoId } = request.params;
-      const { titulo, descricao, responsavel_id, prioridade, data_vencimento } = request.body;
+      const { titulo, descricao, responsavel_id, prioridade, data_vencimento, dificuldade, habilidades } = request.body;
 
       if (!titulo) {
         return response.status(400).json({
@@ -63,9 +110,28 @@ module.exports = {
         });
       }
 
+      // ETAPA 7: valida dificuldade (se fornecida)
+      if (dificuldade !== undefined && !DIFICULDADES_VALIDAS.includes(dificuldade)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Dificuldade inválida (use 'iniciante', 'intermediaria' ou 'avancada')",
+          dados: null,
+        });
+      }
+
+      // ETAPA 7: valida habilidades (se fornecidas)
+      const erroHabilidades = validarHabilidades(habilidades);
+      if (erroHabilidades) {
+        return response.status(400).json({
+          sucesso: false,
+          message: erroHabilidades,
+          dados: null,
+        });
+      }
+
       const sql = `
-        INSERT INTO tarefas (projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento)
-        VALUES (?, ?, ?, ?, 'todo', ?, ?);
+        INSERT INTO tarefas (projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento, dificuldade)
+        VALUES (?, ?, ?, ?, 'todo', ?, ?, ?);
       `;
       const values = [
         projetoId,
@@ -74,10 +140,27 @@ module.exports = {
         descricao || null,
         prioridade || "medium",
         data_vencimento || null,
+        dificuldade || "intermediaria",
       ];
 
       const [result] = await db.query(sql, values);
       const novaTarefaId = result.insertId;
+
+      // ETAPA 7: vincula as habilidades à tarefa recém-criada (best-effort —
+      // id inexistente não derruba a criação; o DELETE em cascata das FKs
+      // cuida da consistência quando a tarefa/habilidade for removida).
+      if (Array.isArray(habilidades) && habilidades.length > 0) {
+        try {
+          for (const habilidadeId of habilidades) {
+            await db.query(
+              "INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES (?, ?)",
+              [novaTarefaId, habilidadeId]
+            );
+          }
+        } catch (e) {
+          console.error("[tarefas] Falha ao vincular habilidades:", e.message);
+        }
+      }
 
       // ETAPA 7: se o projeto tem GitHub conectado, gera branch sugerida já na criação
       // (independentemente de responsável — o ID já existe).
@@ -118,6 +201,8 @@ module.exports = {
           status: "todo",
           prioridade: prioridade || "medium",
           data_vencimento,
+          dificuldade: dificuldade || "intermediaria",
+          habilidades: await carregarHabilidadesTarefa(db, novaTarefaId),
           github_branch: githubBranch,
           subtasks: [],
         },
@@ -130,7 +215,7 @@ module.exports = {
   async atualizarTarefa(request, response, next) {
     try {
       const { projetoId, tarefaId } = request.params;
-      const { titulo, descricao, status, responsavel_id, prioridade, data_vencimento, subtasks } = request.body;
+      const { titulo, descricao, status, responsavel_id, prioridade, data_vencimento, dificuldade, habilidades, subtasks } = request.body;
 
       // Valida prioridade e status (quando fornecidos)
       if (prioridade !== undefined && !PRIORIDADES_VALIDAS.includes(prioridade)) {
@@ -149,6 +234,25 @@ module.exports = {
         });
       }
 
+      // ETAPA 7: valida dificuldade (se fornecida)
+      if (dificuldade !== undefined && !DIFICULDADES_VALIDAS.includes(dificuldade)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Dificuldade inválida (use 'iniciante', 'intermediaria' ou 'avancada')",
+          dados: null,
+        });
+      }
+
+      // ETAPA 7: valida habilidades (se fornecidas)
+      const erroHabilidades = validarHabilidades(habilidades);
+      if (erroHabilidades) {
+        return response.status(400).json({
+          sucesso: false,
+          message: erroHabilidades,
+          dados: null,
+        });
+      }
+
       // 1. Atualiza dados da tarefa se fornecidos
       const fields = [];
       const values = [];
@@ -159,11 +263,23 @@ module.exports = {
       if (responsavel_id !== undefined) { fields.push("responsavel_id = ?"); values.push(responsavel_id || null); }
       if (prioridade !== undefined) { fields.push("prioridade = ?"); values.push(prioridade); }
       if (data_vencimento !== undefined) { fields.push("data_vencimento = ?"); values.push(data_vencimento || null); }
+      if (dificuldade !== undefined) { fields.push("dificuldade = ?"); values.push(dificuldade); }
 
       if (fields.length > 0) {
         values.push(tarefaId, projetoId);
         const sql = `UPDATE tarefas SET ${fields.join(", ")} WHERE id = ? AND projeto_id = ?`;
         await db.query(sql, values);
+      }
+
+      // ETAPA 7: substitui a lista de habilidades da tarefa (DELETE + INSERT)
+      if (habilidades !== undefined) {
+        await db.query("DELETE FROM habilidades_tarefa WHERE tarefa_id = ?", [tarefaId]);
+        for (const habilidadeId of habilidades) {
+          await db.query(
+            "INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES (?, ?)",
+            [tarefaId, habilidadeId]
+          );
+        }
       }
 
       // ETAPA 10: conclusão MANUAL — XP concedido pelo backend (idempotente).
@@ -222,6 +338,7 @@ module.exports = {
         [tarefaId]
       );
       updatedTask.subtasks = subs.map(s => ({ ...s, done: !!s.done }));
+      updatedTask.habilidades = await carregarHabilidadesTarefa(db, tarefaId);
 
       return response.status(200).json({
         sucesso: true,
