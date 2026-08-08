@@ -226,6 +226,16 @@
 
 **Validação da fase:** navegador — criar projeto com stack, candidatar, aprovar candidatura, mural, kanban, perfil; recarregar e conferir persistência; console sem erros.
 
+**✅ STATUS 2026-08-07 — FASE-03 (3.A–3.D CONCLUÍDAS, testes reais no navegador):**
+- ✅ 3.A — `applyToProjectLocal` → `POST /projetos/:id/candidaturas` real (sem fallback local; lança erro). Testado na UI (projeto 2, Fernanda): candidatura id=5 `pendente` no backend com mensagem + `usuario_bio` refletindo perfil salvo.
+- ✅ 3.B — `addLocalMuralMessage` → `POST /projetos/:id/mensagens` real (sem fallback). Testado na UI (projeto 7): mensagem id=9 persistida (`remetente_nome: "Admin MontesSquad"`).
+- ✅ 3.C — `src/services/perfil.ts` novo (`updateUserProfile` PATCH /usuarios/:id + `syncUserSkills` com normalização de acentos/best-effort); `save()` sem `setTimeout(400)` fake, `updateUser` só após 200. Testado: bio editada na UI e confirmada no banco real via API.
+- ✅ 3.D — `createProject` sem `local-<timestamp>` (throw em erro, navega só em sucesso). Testado na UI: "Squad QA FASE-03" criado → **id real 7** no backend (criador_id 5, status aberto).
+- 🐛 **Bug corrigido (descoberto no teste)**: `cadastrarProjeto` não vinculava o criador em `membros_equipe` → dono era tratado como "visitante" (mural/kanban 🔒). Fix: INSERT do vínculo após criar projeto (commit `b1b3560`). Projeto 7 vinculado retroativamente. Pós-fix: aba Mural desbloqueada, "2/5 membros", botão Encerrar Projeto visível.
+- 🧹 Também: `updateLocalApplicationStatus` (aprovar/rejeitar candidatura) sem fallback "finge sucesso" — agora lança erro real.
+- **Commits:** backend `b1b3560` (fix vínculo) + frontend `e422aa3` (FASE-03 3.A–3.D) — push main.
+- 🔄 **3.E–3.H EM EXECUÇÃO** (subagents): tecnologias persistidas (3.E), skills no cadastro (3.F), permissões Kanban p/ membros (3.G), isOwner/isMember por id (3.H).
+
 ---
 
 ## FASE-04 — FRONTEND: reputação, notificações, dashboard e recuperação de senha
