@@ -166,6 +166,28 @@ module.exports = {
         await db.query(sql, values);
       }
 
+      // ETAPA 10: conclusão MANUAL — XP concedido pelo backend (idempotente).
+      // Se a tarefa mudou para 'done' e possui responsável, concede XP manual.
+      if (status === "done") {
+        try {
+          const [antes] = await db.query(
+            "SELECT status, responsavel_id FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+            [tarefaId, projetoId]
+          );
+          const linha = antes[0];
+          if (linha && linha.status === "done" && linha.responsavel_id) {
+            const xpService = require("../services/xp");
+            await xpService.awardXpPorConclusaoManual({
+              usuarioId: linha.responsavel_id,
+              tarefaId: Number(tarefaId),
+            });
+          }
+        } catch (e) {
+          // XP não deve derrubar a atualização da tarefa
+          console.error("[tarefas] Falha ao conceder XP manual:", e.message);
+        }
+      }
+
       // 2. Atualiza checklist de subtarefas se fornecido
       if (Array.isArray(subtasks)) {
         // Limpa subtarefas anteriores

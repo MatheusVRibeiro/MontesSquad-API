@@ -1,7 +1,8 @@
-// Processador de eventos GitHub (ETAPA 8 — push/commits; ETAPA 9 — pull_request)
+// Processador de eventos GitHub (ETAPA 8 — push/commits; ETAPA 9 — pull_request; ETAPA 10 — XP)
 // Recebe eventos já validados (assinatura + idempotência) pelo controller.
 const githubTasks = require("./githubTasks");
 const { criarNotificacao } = require("../controllers/notificacoes");
+const xpService = require("./xp");
 const db = require("../database/connection");
 
 /**
@@ -112,17 +113,28 @@ async function processarPullRequest(payload, context = {}) {
         taskId: task.id, prId, prNumber, prUrl, mergedAt,
       });
       if (resultado.concluida) {
-        // Notificação (ETAPA 9; XP entra na ETAPA 10)
+        // XP server-side idempotente (ETAPA 10) — chave task:{id}:github-merge:pr:{n}
         try {
-          await criarNotificacao(db, {
-            usuario_id: task.responsavel_id,
-            tipo: "task",
-            titulo: "Tarefa concluída via GitHub",
-            descricao: `PR #${prNumber} foi mergeado — tarefa concluída`,
-            link: `/projetos/${task.projeto_id}`,
+          const xpResult = await xpService.awardXpPorMerge({
+            usuarioId: task.responsavel_id,
+            tarefaId: task.id,
+            prNumber,
           });
-        } catch {
-          // notificação não deve derrubar o processamento
+          // Notificação
+          try {
+            await criarNotificacao(db, {
+              usuario_id: task.responsavel_id,
+              tipo: "task",
+              titulo: "Tarefa concluída via GitHub",
+              descricao: `PR #${prNumber} foi mergeado — tarefa concluída${xpResult.concedido ? ` (+${xpService.XP_GITHUB_MERGE} XP)` : ""}`,
+              link: `/projetos/${task.projeto_id}`,
+            });
+          } catch {
+            // notificação não deve derrubar o processamento
+          }
+        } catch (e) {
+          // XP não deve derrubar o processamento do merge
+          console.error("[githubEvents] Falha ao conceder XP por merge:", e.message);
         }
       }
       return {

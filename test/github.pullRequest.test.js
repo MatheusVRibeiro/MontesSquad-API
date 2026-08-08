@@ -55,6 +55,19 @@ function stubarBanco() {
           if (s.includes("select id, usuario_id, tipo, titulo, descricao, lida, link, criado_em from notificacoes")) {
             return queries.selectNotificacao(params);
           }
+          // XP (ETAPA 10) — concedido no merge
+          if (s.startsWith("insert ignore into eventos_xp")) {
+            return [{ affectedRows: 1 }, []];
+          }
+          if (s.includes("select xp, nivel from estatisticas_usuario")) {
+            return [[{ xp: 150, nivel: 1 }], []];
+          }
+          if (s.startsWith("insert into estatisticas_usuario (usuario_id, xp, nivel)")) {
+            return [{ affectedRows: 1 }, []];
+          }
+          if (s.startsWith("update estatisticas_usuario set nivel = floor(xp / 250) + 1")) {
+            return [{ affectedRows: 1 }, []];
+          }
           throw new Error(`Query não mapeada no mock (ETAPA 9): ${sql}`);
         },
       };
