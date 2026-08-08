@@ -64,21 +64,22 @@ async function atualizarAtividadeTask(taskId, conn) {
 
 /**
  * Upsert do Pull Request em github_pull_requests (ETAPA 9).
- * INSERT ... ON DUPLICATE KEY UPDATE (unique repository_id + pr_number).
+ * Schema real: tarefa_id/projeto_id NOT NULL + github_pr_id/numero/url/head_branch/estado/mergeado_em.
+ * INSERT ... ON DUPLICATE KEY UPDATE (unique repository_id + numero).
  */
-async function upsertPullRequest({ repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt, conn }) {
+async function upsertPullRequest({ tarefaId, projetoId, repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt, conn }) {
   const executor = conn || db;
   await executor.query(
     `INSERT INTO github_pull_requests
-      (repository_id, pr_id, pr_number, pr_url, branch, estado, merged_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+      (tarefa_id, projeto_id, repository_id, github_pr_id, numero, url, head_branch, estado, mergeado_em)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
-       pr_id = VALUES(pr_id),
-       pr_url = VALUES(pr_url),
-       branch = VALUES(branch),
+       github_pr_id = VALUES(github_pr_id),
+       url = VALUES(url),
+       head_branch = VALUES(head_branch),
        estado = VALUES(estado),
-       merged_at = VALUES(merged_at)`,
-    [repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt || null]
+       mergeado_em = VALUES(mergeado_em)`,
+    [tarefaId, projetoId, repositoryId, prId, prNumber, prUrl, branch, estado, mergedAt || null]
   );
 }
 

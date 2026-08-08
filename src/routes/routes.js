@@ -141,6 +141,8 @@ router.delete("/github/disconnect", verificarToken, githubController.disconnect)
 // Status GitHub e commits da tarefa (ETAPA 8) — membro/dono
 router.get("/projetos/:projetoId/tarefas/:tarefaId/github", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskGithubStatus);
 router.get("/projetos/:projetoId/tarefas/:tarefaId/commits", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskCommits);
+// Timeline técnica da tarefa (ETAPA 15) — membro/dono
+router.get("/projetos/:projetoId/tarefas/:tarefaId/timeline", verificarToken, somenteMembroOuDonoDoProjeto, githubController.taskTimeline);
 
 // Rankings de commits (ETAPAS 11-12)
 const rankingsController = require("../controllers/rankings");

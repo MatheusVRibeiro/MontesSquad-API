@@ -241,6 +241,98 @@ async function taskCommits(request, response, next) {
 }
 
 /**
+ * GET /projetos/:projetoId/tarefas/:tarefaId/timeline — timeline técnica da task (ETAPA 15).
+ * Derivada das tabelas atuais (sem tabela nova): assumida, branch, commits,
+ * PR aberto/mergeado, conclusão. Membro/dono.
+ */
+async function taskTimeline(request, response, next) {
+  try {
+    const { projetoId, tarefaId } = request.params;
+
+    const [taskRows] = await db.query(
+      `SELECT t.id, t.titulo, t.status, t.github_branch, t.assumida_em,
+              t.github_pr_number, t.github_pr_status, t.github_last_activity_at,
+              t.completion_source, t.completed_at, u.nome AS responsavel_nome
+       FROM tarefas t
+       LEFT JOIN usuarios u ON u.id = t.responsavel_id
+       WHERE t.id = ? AND t.projeto_id = ? LIMIT 1`,
+      [tarefaId, projetoId]
+    );
+    if (taskRows.length === 0) {
+      return response.status(404).json({ sucesso: false, message: "Tarefa não encontrada", dados: null });
+    }
+    const t = taskRows[0];
+
+    const eventos = [];
+
+    // 1. Tarefa assumida
+    if (t.assumida_em) {
+      eventos.push({ tipo: "assumida", titulo: "Tarefa assumida", detalhe: t.responsavel_nome || null, quando: t.assumida_em });
+    }
+
+    // 2. Branch vinculada (quando assumida ou criada com github_branch)
+    if (t.github_branch) {
+      eventos.push({ tipo: "branch", titulo: "Branch vinculada", detalhe: t.github_branch, quando: t.assumida_em || null });
+    }
+
+    // 3. Commits (github_commits)
+    const [commits] = await db.query(
+      `SELECT sha, message, author_name, commit_url, committed_at
+       FROM github_commits WHERE tarefa_id = ? ORDER BY committed_at ASC`,
+      [tarefaId]
+    );
+    for (const c of commits) {
+      eventos.push({
+        tipo: "commit",
+        titulo: "Commit",
+        detalhe: c.message || null,
+        sha: String(c.sha).slice(0, 7),
+        autor: c.author_name || null,
+        url: c.commit_url || null,
+        quando: c.committed_at,
+      });
+    }
+
+    // 4. PRs (github_pull_requests via tarefa)
+    const [prs] = await db.query(
+      `SELECT numero, url, estado, mergeado_em
+       FROM github_pull_requests WHERE tarefa_id = ? ORDER BY id ASC`,
+      [tarefaId]
+    );
+    for (const pr of prs) {
+      if (pr.estado === "merged") {
+        eventos.push({ tipo: "pr_merged", titulo: `PR #${pr.numero} mergeado`, detalhe: "Contribuição verificada", url: pr.url, quando: pr.mergeado_em });
+      } else if (pr.estado === "closed") {
+        eventos.push({ tipo: "pr_closed", titulo: `PR #${pr.numero} fechado sem merge`, detalhe: "Tarefa voltou para Em progresso", url: pr.url, quando: pr.mergeado_em || null });
+      } else {
+        eventos.push({ tipo: "pr_open", titulo: `PR #${pr.numero} aberto`, detalhe: "Tarefa em revisão", url: pr.url, quando: null });
+      }
+    }
+
+    // 5. Conclusão
+    if (t.completion_source === "github_merge" && t.completed_at) {
+      eventos.push({ tipo: "concluida", titulo: "Tarefa concluída via GitHub", detalhe: "Merge verificado", quando: t.completed_at });
+    }
+
+    // Ordena por data (null por último)
+    eventos.sort((a, b) => {
+      if (!a.quando) return 1;
+      if (!b.quando) return -1;
+      return new Date(a.quando) - new Date(b.quando);
+    });
+
+    return response.status(200).json({
+      sucesso: true,
+      message: "Timeline da tarefa",
+      nItens: eventos.length,
+      dados: eventos,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+/**
  * POST /projetos/:projetoId/github/repository — conecta um repositório ao projeto.
  * Somente owner. O backend consulta o GitHub (nunca confia no full_name do browser).
  */
@@ -468,4 +560,5 @@ module.exports = {
   trocarCodePorUsuarioGitHub,
   taskGithubStatus,
   taskCommits,
+  taskTimeline,
 };

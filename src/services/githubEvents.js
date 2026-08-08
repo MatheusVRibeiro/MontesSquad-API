@@ -90,18 +90,33 @@ async function processarPullRequest(payload, context = {}) {
 
   if (action === "opened" || action === "reopened") {
     await githubTasks.upsertarPR({
-      repositoryId, prId, prNumber, prUrl, branch,
+      tarefaId: task.id, projetoId: task.projeto_id, repositoryId, prId, prNumber, prUrl, branch,
       estado: "open", mergedAt: null,
     });
     await githubTasks.atualizarTaskPorPR({
       taskId: task.id, prId, prNumber, prUrl, status: "open",
     });
+
+    // ETAPA 15: notifica responsável/owner sobre o PR aberto (sem spam por commit)
+    try {
+      const autor = pr.user?.login || pr.head?.user?.login || "Alguém";
+      await criarNotificacao(db, {
+        usuario_id: task.responsavel_id,
+        tipo: "github",
+        titulo: "Pull request aberto",
+        descricao: `${autor} abriu o PR #${prNumber} para "${task.titulo}".`,
+        link: prUrl || `/projetos/${task.projeto_id}`,
+      });
+    } catch {
+      // notificação não deve derrubar o processamento
+    }
+
     return { processado: true, motivo: "pr_aberto", deliveryId, taskId: task.id, prNumber };
   }
 
   if (action === "synchronize") {
     await githubTasks.upsertarPR({
-      repositoryId, prId, prNumber, prUrl, branch,
+      tarefaId: task.id, projetoId: task.projeto_id, repositoryId, prId, prNumber, prUrl, branch,
       estado: "open", mergedAt: null,
     });
     await githubTasks.atualizarAtividadeTask(task.id);
@@ -148,7 +163,7 @@ async function processarPullRequest(payload, context = {}) {
 
     // closed sem merge → review volta para doing (MVP)
     await githubTasks.upsertarPR({
-      repositoryId, prId, prNumber, prUrl, branch,
+      tarefaId: task.id, projetoId: task.projeto_id, repositoryId, prId, prNumber, prUrl, branch,
       estado: "closed", mergedAt: null,
     });
     await db.query(
@@ -156,6 +171,20 @@ async function processarPullRequest(payload, context = {}) {
        WHERE id = ?`,
       [task.id]
     );
+
+    // ETAPA 15: notifica que o PR foi fechado sem merge
+    try {
+      await criarNotificacao(db, {
+        usuario_id: task.responsavel_id,
+        tipo: "github",
+        titulo: "Pull request fechado sem merge",
+        descricao: `PR #${prNumber} foi fechado sem merge. A tarefa voltou para Em progresso.`,
+        link: prUrl || `/projetos/${task.projeto_id}`,
+      });
+    } catch {
+      // notificação não deve derrubar o processamento
+    }
+
     return { processado: true, motivo: "pr_closed_sem_merge", deliveryId, taskId: task.id, prNumber };
   }
 
