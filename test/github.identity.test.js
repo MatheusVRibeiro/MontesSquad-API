@@ -27,9 +27,9 @@ Module._load = function (request, parent, isMain) {
 function criarPool() {
   return criarPoolFake([
     {
-      // GET /github/me — SELECT github_* FROM usuarios
-      match: (sql) => /^select github_user_id, github_login, github_avatar_url, github_connected_at from usuarios where id = \? limit 1$/.test(sql),
-      resposta: () => [[{ github_user_id: 90573780, github_login: "MatheusVRibeiro", github_avatar_url: "https://a", github_connected_at: new Date() }], []],
+      // GET /github/me — SELECT github_* FROM usuarios (ETAPA 2: inclui senha_definida/cadastro_origem)
+      match: (sql) => /^select github_user_id, github_login, github_avatar_url, github_connected_at,\s+senha_definida, cadastro_origem from usuarios where id = \? limit 1$/.test(sql),
+      resposta: () => [[{ github_user_id: 90573780, github_login: "MatheusVRibeiro", github_avatar_url: "https://a", github_connected_at: new Date(), senha_definida: 1, cadastro_origem: "local" }], []],
     },
     {
       // callback: SELECT duplicado
@@ -40,6 +40,11 @@ function criarPool() {
       // callback: UPDATE vinculo
       match: (sql) => /^update usuarios set\s+github_user_id = \?, github_login = \?, github_avatar_url = \?, github_connected_at = now\(\)\s+where id = \?$/i.test(sql),
       resposta: () => [{ affectedRows: 1 }, []],
+    },
+    {
+      // disconnect: SELECT regra de senha (ETAPA 2) — conta local com senha → segue para 200
+      match: (sql) => /^select cadastro_origem, senha_definida from usuarios where id = \? limit 1$/.test(sql),
+      resposta: () => [[{ cadastro_origem: "local", senha_definida: 1 }], []],
     },
     {
       // disconnect: UPDATE limpar vinculo

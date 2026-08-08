@@ -1,10 +1,10 @@
--- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10)
-INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url, tipo) VALUES 
-('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro'),
-('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro'),
-('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro'),
-('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro'),
-('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm');
+-- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10; senha_definida=1 pois são contas locais com senha utilizável)
+INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url, tipo, senha_definida) VALUES 
+('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro', 1),
+('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro', 1),
+('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro', 1),
+('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro', 1),
+('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm', 1);
 
 -- 2. Inserir Habilidades
 INSERT INTO habilidades (nome) VALUES 
@@ -111,3 +111,29 @@ INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUE
 (3, 'approved', 'Candidatura aprovada', 'Sua candidatura foi aprovada no projeto API de Gestão de Frota', '/projetos/1', false),
 (4, 'task', 'Nova tarefa atribuída', 'Você recebeu uma nova tarefa no projeto App de Delivery Local', '/projetos/3', false),
 (1, 'message', 'Nova mensagem no projeto', 'Roberto Almeida: O banco de dados já está modelado?', '/projetos/1', false);
+
+-- 16. Inserir Funções (Evolução ETAPA 4 — base de papéis para vagas)
+INSERT INTO funcoes (nome) VALUES
+('Backend'),
+('Frontend'),
+('Full Stack'),
+('Mobile'),
+('QA'),
+('DevOps'),
+('UX/UI'),
+('Data'),
+('Product');
+
+-- 17. Inserir Vagas dos Projetos (Evolução ETAPA 4)
+INSERT INTO vagas_projeto (projeto_id, funcao_id, quantidade, preenchidas, descricao, nivel_desejado, status) VALUES
+(1, 1, 2, 0, 'Desenvolvimento de APIs REST e integrações com o banco.', 'avancado', 'aberta'),
+(1, 2, 1, 0, 'Telas responsivas e integração com a API.', 'intermediario', 'aberta'),
+(2, 8, 1, 0, 'Pipelines de dados e dashboards de BI.', 'avancado', 'aberta'),
+(3, 5, 1, 0, 'Testes automatizados e garantia de qualidade do app.', 'iniciante', 'aberta');
+
+-- 18. Inserir Funções de Interesse dos Usuários (Evolução ETAPA 3 — perfil técnico)
+INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES
+(1, 1, 'alto'),  -- Lucas: Backend
+(2, 8, 'alto'),  -- Fernanda: Data
+(3, 2, 'alto'),  -- Roberto: Frontend
+(4, 3, 'alto');  -- Juliana: Full Stack
