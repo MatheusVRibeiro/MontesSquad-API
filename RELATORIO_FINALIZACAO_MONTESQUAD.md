@@ -234,7 +234,12 @@
 - 🐛 **Bug corrigido (descoberto no teste)**: `cadastrarProjeto` não vinculava o criador em `membros_equipe` → dono era tratado como "visitante" (mural/kanban 🔒). Fix: INSERT do vínculo após criar projeto (commit `b1b3560`). Projeto 7 vinculado retroativamente. Pós-fix: aba Mural desbloqueada, "2/5 membros", botão Encerrar Projeto visível.
 - 🧹 Também: `updateLocalApplicationStatus` (aprovar/rejeitar candidatura) sem fallback "finge sucesso" — agora lança erro real.
 - **Commits:** backend `b1b3560` (fix vínculo) + frontend `e422aa3` (FASE-03 3.A–3.D) — push main.
-- 🔄 **3.E–3.H EM EXECUÇÃO** (subagents): tecnologias persistidas (3.E), skills no cadastro (3.F), permissões Kanban p/ membros (3.G), isOwner/isMember por id (3.H).
+- 🔄 **3.E–3.H CONCLUÍDAS (2026-08-07, commits `18cd3da` + `a19e288`):**
+  - ✅ 3.E — Backend `listarProjetos` retorna `tecnologias` (GROUP_CONCAT habilidades_projeto+habilidades); `createProject` persiste stack via `POST /habilidades-projeto` (best-effort, normalização de acentos); `fetchProjects` mapeia tecnologias. Testado na UI: projeto id=8 "Squad Stack 3E" → `tecnologias: ['Node.js', 'React']` no backend.
+  - ✅ 3.F — `signUp` (AuthContext) faz POST /usuarios → auto-login (`loginAndMap`) → `syncUserSkills` best-effort; `register.tsx` navega /dashboard ou /login.
+  - ✅ 3.G — `POST /projetos/:projetoId/tarefas` liberado p/ membros (`somenteMembroOuDonoDoProjeto`); KanbanBoard já usava `readOnly={!isMember}`.
+  - ✅ 3.H — `isOwner`/`isMember` por **id** (creatorId mapeado de criador_id + `members[].id`), sem comparação por nome.
+- **🎉 FASE-03 100% CONCLUÍDA** — commits: backend `b1b3560` + `18cd3da`, frontend `e422aa3` + `a19e288` (push main).
 
 ---
 
