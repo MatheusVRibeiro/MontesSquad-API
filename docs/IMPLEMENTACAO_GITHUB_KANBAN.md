@@ -127,6 +127,235 @@ Se um único item obrigatório estiver faltando, a etapa permanece **EM EXECUÇ�
 
 Subagentes podem executar partes independentes da **mesma etapa**.
 
+---
+
+## 3.3 Regras de execução da implementação (orquestração de subagentes)
+
+A implementação das etapas deste plano é feita por subagentes coordenados pelo agente principal. As regras abaixo são **obrigatórias e não negociáveis** — violá-las gera retrabalho, corridas de edição no mesmo arquivo e commits quebrados.
+
+### 3.3.1 Limite de execuções simultâneas: até 4
+
+- No máximo **4 subagentes podem executar em paralelo** em qualquer instante.
+- Nunca disparar um lote com mais de 4 agentes simultâneos.
+- Se uma etapa exigir mais de 4 frentes, dividir em lotes de 4.
+
+### 3.3.2 Quantidade total de subagentes: sem limite fixo
+
+- O **total acumulado** de subagentes usados ao longo de toda a implementação **não tem limite fixo**.
+- Pode-se usar quantos subagentes forem necessários para concluir as etapas, respeitando sempre o teto de 4 paralelos (3.3.1).
+- A quantidade total não é critério de economia — o critério é **gate fechado por etapa** (3.3.5).
+
+### 3.3.3 Fila contínua
+
+- As tarefas aguardam em **fila** até haver vaga entre os 4 slots paralelos.
+- Quando um subagente termina, **o próximo item da fila entra imediatamente** no slot liberado — sem esperar o lote inteiro.
+- A fila deve respeitar a ordem de dependências (3.3.4): um item só entra quando todas as suas dependências já passaram pelo gate.
+
+### 3.3.4 Respeito às dependências
+
+- Antes de disparar qualquer subagente, verificar se as etapas das quais ele depende já foram **implementadas, validadas e fechadas** (gate 3.3.5).
+- Etapas que tocam **os mesmos arquivos** são dependentes por construção: nunca dispará-las no mesmo lote — aguardar a primeira terminar e o gate fechar antes de liberar a segunda (evita corrida de edição).
+- Etapa que consome contrato definido por outra (ex: frontend consumindo endpoint novo do backend) só inicia após o contrato existir no código e ser testado.
+
+### 3.3.5 Proibição de avançar antes do gate da etapa atual
+
+- **NENHUMA etapa pode ser iniciada enquanto a etapa atual não tiver passado integralmente pelo gate.**
+- Gate obrigatório por etapa (na ordem):
+  1. Código implementado por subagente;
+  2. Agente principal **revisa** o retorno (arquivos existem, conteúdo correto);
+  3.  (backend) / Version 7.0.2
+tsc: The TypeScript Compiler - Version 7.0.2
+
+COMMON COMMANDS
+
+  tsc
+  Compiles the current project (tsconfig.json in the working directory.)
+
+  tsc app.ts util.ts
+  Ignoring tsconfig.json, compiles the specified files with default compiler options.
+
+  tsc -b
+  Build a composite project in the working directory.
+
+  tsc --init
+  Creates a tsconfig.json with the recommended settings in the working directory.
+
+  tsc -p ./path/to/tsconfig.json
+  Compiles the TypeScript project located at the specified path.
+
+  tsc --help --all
+  An expanded version of this information, showing all possible compiler options
+
+  tsc --noEmit
+  tsc --target esnext
+  Compiles the current project, with additional settings.
+
+COMMAND LINE FLAGS
+
+--help, -h
+Print this message.
+
+--watch, -w
+Watch input files.
+
+--all
+Show all compiler options.
+
+--version, -v
+Print the compiler's version.
+
+--init
+Initializes a TypeScript project and creates a tsconfig.json file.
+
+--project, -p
+Compile the project given the path to its configuration file, or to a folder with a 'tsconfig.json'.
+
+--showConfig
+Print the final configuration instead of building.
+
+--ignoreConfig
+Ignore the tsconfig found and build with commandline options and files.
+
+--build, -b
+Build one or more projects and their dependencies, if out of date
+
+COMMON COMPILER OPTIONS
+
+--pretty
+Enable color and formatting in TypeScript's output to make compiler errors easier to read.
+type: boolean
+default: true
+
+--declaration, -d
+Generate .d.ts files from TypeScript and JavaScript files in your project.
+type: boolean
+default: `false`, unless `composite` is set
+
+--declarationMap
+Create sourcemaps for d.ts files.
+type: boolean
+default: false
+
+--emitDeclarationOnly
+Only output d.ts files and not JavaScript files.
+type: boolean
+default: false
+
+--sourceMap
+Create source map files for emitted JavaScript files.
+type: boolean
+default: false
+
+--noEmit
+Disable emitting files from a compilation.
+type: boolean
+default: false
+
+--target, -t
+Set the JavaScript language version for emitted JavaScript and include compatible library declarations.
+one of: es6/es2015, es2016, es2017, es2018, es2019, es2020, es2021, es2022, es2023, es2024, es2025, esnext
+default: es2025
+
+--module, -m
+Specify what module code is generated.
+one of: commonjs, es6/es2015, es2020, es2022, esnext, node16, node18, node20, nodenext, preserve
+default: undefined
+
+--lib
+Specify a set of bundled library declaration files that describe the target runtime environment.
+one or more: es5, es6/es2015, es7/es2016, es2017, es2018, es2019, es2020, es2021, es2022, es2023, es2024, es2025, esnext, dom, dom.iterable, dom.asynciterable, webworker, webworker.importscripts, webworker.iterable, webworker.asynciterable, scripthost, es2015.core, es2015.collection, es2015.generator, es2015.iterable, es2015.promise, es2015.proxy, es2015.reflect, es2015.symbol, es2015.symbol.wellknown, es2016.array.include, es2016.intl, es2017.arraybuffer, es2017.date, es2017.object, es2017.sharedmemory, es2017.string, es2017.intl, es2017.typedarrays, es2018.asyncgenerator, es2018.asynciterable/esnext.asynciterable, es2018.intl, es2018.promise, es2018.regexp, es2019.array, es2019.object, es2019.string, es2019.symbol/esnext.symbol, es2019.intl, es2020.bigint/esnext.bigint, es2020.date, es2020.promise, es2020.sharedmemory, es2020.string, es2020.symbol.wellknown, es2020.intl, es2020.number, es2021.promise, es2021.string, es2021.weakref/esnext.weakref, es2021.intl, es2022.array, es2022.error, es2022.intl, es2022.object, es2022.string, es2022.regexp, es2023.array, es2023.collection, es2023.intl, es2024.arraybuffer, es2024.collection, es2024.object/esnext.object, es2024.promise, es2024.regexp/esnext.regexp, es2024.sharedmemory, es2024.string/esnext.string, es2025.collection, es2025.float16/esnext.float16, es2025.intl, es2025.iterator/esnext.iterator, es2025.promise/esnext.promise, es2025.regexp, esnext.array, esnext.collection, esnext.date, esnext.decorators, esnext.disposable, esnext.error, esnext.intl, esnext.sharedmemory, esnext.temporal, esnext.typedarrays, decorators, decorators.legacy
+default: undefined
+
+--allowJs
+Allow JavaScript files to be a part of your program. Use the 'checkJs' option to get errors from these files.
+type: boolean
+default: `false`, unless `checkJs` is set
+
+--checkJs
+Enable error reporting in type-checked JavaScript files.
+type: boolean
+default: false
+
+--jsx
+Specify what JSX code is generated.
+one of: preserve, react-native, react-jsx, react-jsxdev, react
+default: undefined
+
+--outFile
+Specify a file that bundles all outputs into one JavaScript file. If 'declaration' is true, also designates a file that bundles all .d.ts output.
+
+--outDir
+Specify an output folder for all emitted files.
+
+--removeComments
+Disable emitting comments.
+type: boolean
+default: false
+
+--strict
+Enable all strict type-checking options.
+type: boolean
+default: true
+
+--types
+Specify type package names to be included without being referenced in a source file.
+
+--esModuleInterop
+Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility.
+type: boolean
+default: true
+
+You can learn about all of the compiler options at https://aka.ms/tsc (frontend) — zero erros;
+  4. Suíte de testes completa (backend 
+> montesquad-api@1.0.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/xmath/OneDrive/Documentos/Projeto TCC/MontesSquad-API[39m
+
+ [32m✓[39m test/habilidades.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 225[2mms[22m[39m
+ [32m✓[39m test/mural.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 243[2mms[22m[39m
+ [32m✓[39m test/candidaturas.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 244[2mms[22m[39m
+ [32m✓[39m test/usuarios.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 257[2mms[22m[39m
+ [32m✓[39m test/auth.test.js [2m([22m[2m4 tests[22m[2m)[22m[33m 551[2mms[22m[39m
+     [33m[2m✓[22m[39m login com credenciais corretas → 200 com token [33m 314[2mms[22m[39m
+ [32m✓[39m test/tarefas.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m test/projetos.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m test/reputacao.test.js [2m([22m[2m2 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m test/health.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m test/notificacoes.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m      Tests [22m [1m[32m32 passed[39m[22m[90m (32)[39m
+[2m   Start at [22m 13:43:56
+[2m   Duration [22m 3.84s[2m (transform 561ms, setup 0ms, import 12.47s, tests 1.76s, environment 1ms)[22m, frontend 
+> montesquad-api@1.0.0 test
+> vitest run
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90mC:/Users/xmath/OneDrive/Documentos/Projeto TCC/MontesSquad-API[39m
+
+ [32m✓[39m test/habilidades.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+ [32m✓[39m test/candidaturas.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m test/usuarios.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+ [32m✓[39m test/mural.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m test/auth.test.js [2m([22m[2m4 tests[22m[2m)[22m[33m 351[2mms[22m[39m
+ [32m✓[39m test/reputacao.test.js [2m([22m[2m2 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m test/tarefas.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 60[2mms[22m[39m
+ [32m✓[39m test/notificacoes.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m test/projetos.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m test/health.test.js [2m([22m[2m3 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m      Tests [22m [1m[32m32 passed[39m[22m[90m (32)[39m
+[2m   Start at [22m 13:44:01
+[2m   Duration [22m 1.85s[2m (transform 216ms, setup 0ms, import 4.91s, tests 812ms, environment 1ms)[22m) — tudo verde;
+  5. Build (frontend ) — passa;
+  6. Commit em PT-BR + push.
+- **Somente após o gate fechado** pode-se iniciar a próxima etapa (ou liberar o próximo item da fila).
+- É proibido "adivinhar" que a etapa está pronta — o gate é verificado com execução real, nunca por leitura estática.
+
+
 Exemplo:
 
 ```text
@@ -139,7 +368,7 @@ Subagente C → testes
 
 O agente principal deve integrar, revisar e testar tudo antes de fechar a etapa.
 
-## 3.3 Enquanto aguarda subagentes
+## 3.4 Enquanto aguarda subagentes
 
 Se houver subagentes trabalhando na etapa atual, o agente principal pode **analisar** a próxima etapa para melhorar o andamento.
 
