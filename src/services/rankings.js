@@ -199,5 +199,3 @@ async function topCommittersGeral(limit = 10, period = "all") {
     commitCount: Number(r.commitCount),
   }));
 }
-
-module.exports = { topCommittersPorProjeto, topCommittersGeral };
