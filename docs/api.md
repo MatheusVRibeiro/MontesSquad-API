@@ -881,3 +881,102 @@ Ao **aprovar** uma candidatura (seção 22), o backend agora **insere o membro e
 | `funcao_id` | `vagas_projeto.funcao_id` (função da vaga) |
 | `status` | `'ativo'` |
 | `saiu_em` | `NULL` |
+
+---
+
+### 24. Evolução ETAPA 7 — Tasks com habilidades e dificuldade
+
+A ETAPA 7 permite que cada tarefa indique o **conhecimento esperado** (habilidades) e a **dificuldade**, preparando o terreno para filtros e recomendações futuras por habilidade e dificuldade. A criação e a edição de tarefas passam a aceitar `dificuldade` e uma lista de `habilidades` (ids), e a listagem passa a devolver a dificuldade e as habilidades com nome. A relação N:N entre tarefas e habilidades fica na nova tabela **`habilidades_tarefa`**.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa7.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Tabela **`habilidades_tarefa`** | Relação N:N entre tarefas e habilidades — `tarefa_id` + `habilidade_id` em **PK composta**. |
+| FK `tarefa_id` | → `tarefas(id)` `ON DELETE CASCADE` — remover a tarefa apaga os vínculos de habilidade. |
+| FK `habilidade_id` | → `habilidades(id)` `ON DELETE CASCADE` — remover a habilidade apaga os vínculos das tarefas. |
+| Coluna **`tarefas.dificuldade`** | `ENUM('iniciante','intermediaria','avancada') DEFAULT 'intermediaria'` — dificuldade esperada da tarefa. |
+
+**Regras de negócio:**
+- `dificuldade` é **opcional** — quando omitida, assume `'intermediaria'` (DEFAULT);
+- `habilidades` é **opcional** — quando omitida ou `[]`, a tarefa fica sem vínculos de habilidade;
+- na **edição** (`PATCH`), a lista de `habilidades` enviada **substitui** a lista anterior (os vínculos antigos de `habilidades_tarefa` são removidos e os novos inseridos);
+- ao listar, cada tarefa traz `dificuldade` e `habilidades` com `id` + `nome` (JOIN `habilidades_tarefa` → `habilidades`); tarefa sem habilidade retorna `habilidades: []`;
+- o mesmo enriquecimento vale para as tarefas exibidas em `dados.tasks` do `GET /projetos/:id` (seção 3).
+
+#### `POST /projetos/:projetoId/tarefas` (Membro/dono) — aceita dificuldade e habilidades
+Cria a tarefa. Além dos campos existentes (seção 6), o body agora aceita `dificuldade` e `habilidades`.
+- **Request Body:**
+  ```json
+  {
+    "titulo": "Criar API de Login",
+    "descricao": "Implementar autenticação JWT",
+    "prioridade": "high",
+    "responsavel_id": 2,
+    "dificuldade": "intermediaria",
+    "habilidades": [1, 7, 9]
+  }
+  ```
+- **Response (201 OK):** `dados` com a tarefa criada, incluindo `dificuldade` e `habilidades` (array com `id` e `nome`):
+  ```json
+  {
+    "sucesso": true,
+    "message": "Tarefa criada com sucesso",
+    "dados": {
+      "id": 51,
+      "projeto_id": 10,
+      "titulo": "Criar API de Login",
+      "status": "todo",
+      "prioridade": "high",
+      "responsavel_id": 2,
+      "dificuldade": "intermediaria",
+      "habilidades": [
+        { "id": 1, "nome": "Node.js" },
+        { "id": 7, "nome": "Express" },
+        { "id": 9, "nome": "JWT" }
+      ]
+    }
+  }
+  ```
+- **Erros:** 400 (validação, ex.: `dificuldade` fora do ENUM, `habilidade_id` inexistente), 403 (não é membro/dono), 404 (projeto inexistente).
+
+#### `PATCH /projetos/:projetoId/tarefas/:tarefaId` (Membro/dono) — atualiza dificuldade e substitui habilidades
+Edita a tarefa. Quando `dificuldade` é enviada, atualiza a coluna; quando `habilidades` é enviada, a lista **substitui** os vínculos existentes em `habilidades_tarefa`. Campos omitidos permanecem inalterados.
+- **Request Body:**
+  ```json
+  {
+    "titulo": "Criar API de Login com refresh token",
+    "dificuldade": "avancada",
+    "habilidades": [1, 9]
+  }
+  ```
+- **Response (200 OK):** `dados` com a tarefa atualizada (mesma estrutura do POST, com `dificuldade` e `habilidades`).
+- **Erros:** 400 (validação, ex.: `dificuldade` fora do ENUM, `habilidade_id` inexistente), 403 (não é membro/dono), 404 (tarefa inexistente no projeto).
+
+#### `GET /projetos/:projetoId/tarefas` (Membro/dono) — resposta inclui dificuldade e habilidades
+Lista as tarefas do projeto. Cada item da resposta agora inclui `dificuldade` e `habilidades` (nomes).
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Tarefas carregadas com sucesso",
+    "nItens": 1,
+    "dados": [
+      {
+        "id": 51,
+        "projeto_id": 10,
+        "titulo": "Criar API de Login",
+        "status": "doing",
+        "prioridade": "high",
+        "responsavel_id": 2,
+        "dificuldade": "intermediaria",
+        "habilidades": [
+          { "id": 1, "nome": "Node.js" },
+          { "id": 7, "nome": "Express" },
+          { "id": 9, "nome": "JWT" }
+        ]
+      }
+    ]
+  }
+  ```
+- **Erros:** 403 (não é membro/dono), 404 (projeto inexistente).
