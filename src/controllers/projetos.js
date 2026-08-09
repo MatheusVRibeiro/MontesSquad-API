@@ -322,7 +322,9 @@ module.exports = {
         projeto.messages = [];
         projeto.applications = [];
       } else {
-        // 4.1 Busca tarefas do Kanban (com subtarefas)
+        // 4.1 Busca tarefas do Kanban (com subtarefas) — ETAPA 10: filtra
+        // tarefas arquivadas (soft-delete excluida_em IS NULL); o histórico
+        // vinculado (commits/PRs GitHub) permanece no banco.
         const [tasks] = await db.query(
           `SELECT t.id, t.titulo AS title, t.descricao AS description, t.status, 
                   u.nome AS assignee, t.prioridade AS priority, t.data_vencimento AS dueDate,
@@ -333,7 +335,7 @@ module.exports = {
                   t.responsavel_id AS assigneeId
            FROM tarefas t
            LEFT JOIN usuarios u ON t.responsavel_id = u.id
-           WHERE t.projeto_id = ?`,
+           WHERE t.projeto_id = ? AND t.excluida_em IS NULL`,
           [pId]
         );
 

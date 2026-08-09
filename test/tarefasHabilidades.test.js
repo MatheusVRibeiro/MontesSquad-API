@@ -63,8 +63,9 @@ const pool = criarPoolFake([
     ], []],
   },
   {
-    // listarTarefas — tarefas do projeto
-    match: (sql) => /^select t\.\*, u\.nome as responsavel_nome from tarefas t left join usuarios u on t\.responsavel_id = u\.id where t\.projeto_id = \?$/.test(sql),
+    // listarTarefas — tarefas do projeto (ETAPA 10: filtro excluida_em IS NULL
+    // anexado ao final — prefixo sem $ para casar com a variante atual)
+    match: (sql) => /^select t\.\*, u\.nome as responsavel_nome from tarefas t left join usuarios u on t\.responsavel_id = u\.id where t\.projeto_id = \?/.test(sql),
     resposta: () => [[
       { id: 1, titulo: "Criar API de Login", descricao: null, status: "todo", prioridade: "medium", dificuldade: "intermediaria", responsavel_nome: null },
       { id: 2, titulo: "Deploy em staging", descricao: null, status: "doing", prioridade: "high", dificuldade: "avancada", responsavel_nome: "Lucas" },

@@ -186,6 +186,7 @@ CREATE TABLE tarefas (
     concluida_via ENUM('manual', 'github_merge') NULL,
     concluida_em DATETIME NULL,
     assumida_em DATETIME NULL,
+    excluida_em DATETIME NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     dificuldade ENUM('iniciante', 'intermediaria', 'avancada') DEFAULT 'intermediaria' NOT NULL,
     INDEX idx_tarefas_projeto_github_branch (projeto_id, github_branch),

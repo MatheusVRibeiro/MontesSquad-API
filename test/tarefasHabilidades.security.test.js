@@ -61,10 +61,12 @@ function criarPoolEtapa7({ criadorId = 1, linhasTarefas = [], habilidadesDaTaref
         ),
       resposta: () => [habilidadesDaTarefa, []],
     },
-    // GET — listagem com LEFT JOIN usuarios (t.*: passthrough de dificuldade)
+    // GET — listagem com LEFT JOIN usuarios (t.*: passthrough de dificuldade).
+    // ETAPA 10: o filtro 'AND t.excluida_em IS NULL' foi anexado ao final —
+    // prefixo sem $ para casar com a variante atual do contrato.
     {
       match: (sql) =>
-        /^select t\.\*, u\.nome as responsavel_nome from tarefas t left join usuarios u on t\.responsavel_id = u\.id where t\.projeto_id = \?$/.test(
+        /^select t\.\*, u\.nome as responsavel_nome from tarefas t left join usuarios u on t\.responsavel_id = u\.id where t\.projeto_id = \?/.test(
           sql
         ),
       resposta: () => [linhasTarefas, []],

@@ -1056,3 +1056,33 @@ Lista o histórico de responsáveis da tarefa (mais recentes primeiro), com **no
   }
   ```
 - **Erros:** 403 (usuário não é membro/dono do projeto), 404 (tarefa inexistente no projeto).
+
+---
+
+### 26. Evolução ETAPA 10 — Soft-delete de tarefas e histórico de participação permanente
+
+A ETAPA 10 garante que **nenhuma contribuição histórica legítima seja apagada**: excluir uma tarefa deixa de ser um `DELETE` físico e vira **soft-delete** (coluna `excluida_em`), preservando commits, timeline, histórico de responsáveis e vínculos de habilidade; e a participação em um projeto — inclusive de quem **saiu** ou foi **removido** — permanece no histórico do perfil. Sair do squad ou excluir uma tarefa não elimina portfólio nem métricas passadas.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa10.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Coluna **`tarefas.excluida_em`** | `DATETIME NULL` — data/hora do soft-delete da tarefa. `NULL` = tarefa ativa (não excluída). Marcada com `NOW()` ao excluir. |
+
+**Regras de negócio:**
+- **soft-delete de tarefas:** excluir uma tarefa **nunca apaga o registro** — apenas atualiza `excluida_em = NOW()`. Commits vinculados, timeline, `historico_responsaveis_tarefa` (ETAPA 9) e `habilidades_tarefa` (ETAPA 7) permanecem intactos como evidência;
+- tarefas com `excluida_em` preenchido **não aparecem** na listagem (`GET /projetos/:projetoId/tarefas` filtra `excluida_em IS NULL`), não contam para o Kanban/quadro nem para contagens de tarefas;
+- **histórico de participação permanente:** membros com `status = 'saiu'` ou `'removido'` (ETAPA 6) continuam registrados em `membros_equipe` e seguem aparecendo no **histórico de participação do perfil** do usuário — sair ou ser removido **não elimina** o projeto do portfólio nem as métricas históricas legítimas (tasks verificadas, commits, reputação);
+- a listagem de membros ativos (`GET /projetos/:projetoId/membros`, seção 23) continua retornando apenas `status = 'ativo'`; o histórico completo fica disponível no perfil.
+
+#### `DELETE /projetos/:projetoId/tarefas/:tarefaId` (Membro/dono) — agora soft-delete
+Exclui a tarefa de forma **lógica**: em vez de `DELETE FROM tarefas`, o backend executa `UPDATE tarefas SET excluida_em = NOW() WHERE id = ? AND projeto_id = ? AND excluida_em IS NULL`. A tarefa some da listagem e do Kanban, mas o registro e toda a evidência associada (commits, timeline, histórico de responsáveis, habilidades) permanecem no banco. Sem Request Body.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Tarefa excluída com sucesso", "dados": null }`.
+- **Erros:** 403 (não é membro/dono do projeto), 404 (tarefa inexistente no projeto ou já excluída — `excluida_em` preenchido).
+
+#### `GET /projetos/:projetoId/tarefas` (Membro/dono) — filtra tarefas excluídas
+A listagem agora retorna **apenas tarefas ativas**, aplicando o filtro `excluida_em IS NULL` na consulta. Tarefas soft-deletadas não aparecem no resultado, no `nItens` nem no Kanban. A estrutura da resposta permanece a da seção 25 (com `dificuldade` e `habilidades`).
+- **Erros:** 403 (não é membro/dono do projeto), 404 (projeto inexistente).
+
+#### Histórico de participação permanente — membros `saiu`/`removido` continuam no perfil
+O perfil do usuário continua exibindo o projeto no histórico mesmo depois de **sair** (`POST /projetos/:projetoId/sair`) ou ser **removido** (`DELETE /projetos/:projetoId/membros/:usuarioId`) — as contribuições passadas não são apagadas. O registro de `membros_equipe` permanece com `status = 'saiu'`/`'removido'` e `saiu_em` preenchido (ETAPA 6), e as métricas históricas legítimas (tasks verificadas, commits, reputação) continuam vinculadas ao usuário/projeto. Remover/sair do squad **não elimina portfólio nem métricas históricas** (critério de aceite da ETAPA 10).

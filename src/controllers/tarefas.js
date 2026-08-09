@@ -51,11 +51,14 @@ module.exports = {
     try {
       const { projetoId } = request.params;
 
+      // ETAPA 10: filtra tarefas arquivadas (soft-delete) — excluida_em IS NULL.
+      // Tarefa excluída SOME do Kanban, mas a linha (e todo o histórico vinculado:
+      // commits/PRs GitHub, historico_responsaveis_tarefa) permanece no banco.
       const [tasks] = await db.query(
         `SELECT t.*, u.nome AS responsavel_nome
          FROM tarefas t
          LEFT JOIN usuarios u ON t.responsavel_id = u.id
-         WHERE t.projeto_id = ?`,
+         WHERE t.projeto_id = ? AND t.excluida_em IS NULL`,
         [projetoId]
       );
 
@@ -379,8 +382,13 @@ module.exports = {
     try {
       const { projetoId, tarefaId } = request.params;
 
+      // ETAPA 10: soft-delete — a tarefa NUNCA é apagada fisicamente (o histórico
+      // de participação — subtarefas, habilidades, commits/PRs GitHub e
+      // historico_responsaveis_tarefa — permanece como evidência). A linha só é
+      // marcada com excluida_em = NOW() e some do Kanban (listarTarefas filtra
+      // `excluida_em IS NULL`).
       const [result] = await db.query(
-        "DELETE FROM tarefas WHERE id = ? AND projeto_id = ?",
+        "UPDATE tarefas SET excluida_em = NOW() WHERE id = ? AND projeto_id = ?",
         [tarefaId, projetoId]
       );
 
