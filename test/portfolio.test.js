@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from "vitest";
 import request from "supertest";
-import { buildApp, criarPoolFake, buscarChamada } from "./helpers/bootstrap.js";
+import { buildApp, criarPoolFake, buscarChamada, tokenPara } from "./helpers/bootstrap.js";
 
 // Pool do fluxo completo: usuário existe + participação + 5 agregados.
 function criarPoolPortfolio() {
@@ -198,5 +198,30 @@ describe("ETAPA 11 — GET /usuarios/:id/portfolio (portfólio verificável)", (
     expect(res.body.sucesso).toBe(false);
     expect(res.body.message).toBe("Usuário não encontrado");
     expect(res.body.dados).toBeNull();
+  });
+
+  it("alias 'me' SEM token → 401 (M2 do QA — não existe portfólio 'meu' anônimo)", async () => {
+    const app = buildApp(criarPoolPortfolio());
+
+    const res = await request(app).get("/usuarios/me/portfolio"); // sem Authorization
+
+    expect(res.status).toBe(401);
+    expect(res.body.sucesso).toBe(false);
+    expect(res.body.message).toBe("Autenticação necessária para acessar o próprio portfólio");
+    expect(res.body.dados).toBeNull();
+  });
+
+  it("alias 'me' COM token válido → 200 com o portfólio do usuário do token (M2 do QA)", async () => {
+    const pool = criarPoolPortfolio();
+    const app = buildApp(pool);
+    const token = tokenPara({ id: 2 });
+
+    const res = await request(app)
+      .get("/usuarios/me/portfolio")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sucesso).toBe(true);
+    expect(res.body.dados.projetos).toHaveLength(2);
   });
 });

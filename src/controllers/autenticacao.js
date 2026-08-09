@@ -245,7 +245,19 @@ module.exports = {
         });
       }
 
-      const payload = jwt.verify(token, RESET_SECRET);
+      let payload;
+      try {
+        payload = jwt.verify(token, RESET_SECRET);
+      } catch (error) {
+        // B3 (QA): token inválido/expirado → resposta genérica com dados:null.
+        // NÃO ecoar o erro cru do jwt (ex.: "jwt malformed") no campo dados —
+        // o middleware global de erro dev/teste ecoaria originalError.message.
+        return response.status(400).json({
+          sucesso: false,
+          message: "Token inválido ou expirado",
+          dados: null,
+        });
+      }
       const senhaCriptografada = await bcrypt.hash(novaSenha, 10);
 
       const sql = `

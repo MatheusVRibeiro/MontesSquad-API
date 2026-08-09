@@ -169,3 +169,31 @@ describe("Auth — logout e revogação de sessão (A1)", () => {
     expect(payload.token_versao).toBe(0);
   });
 });
+
+// B3 do QA: resetar-senha com token inválido NÃO pode vazar o erro cru do jwt
+// (ex.: "jwt malformed") no campo dados — resposta genérica com dados:null.
+describe("Auth — POST /resetar-senha (B3 do QA)", () => {
+  it("token inválido → 400 genérico com dados:null (sem vazar 'jwt malformed')", async () => {
+    const app = buildApp(criarPoolFake([]));
+
+    const res = await request(app)
+      .post("/resetar-senha")
+      .send({ token: "token-invalido", novaSenha: "novaSenha123" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.sucesso).toBe(false);
+    expect(res.body.message).toBe("Token inválido ou expirado");
+    expect(res.body.dados).toBeNull();
+    expect(JSON.stringify(res.body)).not.toContain("jwt malformed");
+  });
+
+  it("sem token/novaSenha → 400 'Token e novaSenha são obrigatórios'", async () => {
+    const app = buildApp(criarPoolFake([]));
+
+    const res = await request(app).post("/resetar-senha").send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Token e novaSenha são obrigatórios");
+    expect(res.body.dados).toBeNull();
+  });
+});

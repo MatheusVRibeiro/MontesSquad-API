@@ -264,7 +264,10 @@ module.exports = {
           p.discord_url AS discordUrl,
           p.documentacao_url AS documentacaoUrl,
           p.criado_em AS createdAt,
-          (SELECT COUNT(*) FROM membros_equipe WHERE projeto_id = p.id) + 1 AS membersCount
+          -- B1 (QA): o criador JÁ está em membros_equipe desde a FASE-03, então
+          -- somar +1 ao COUNT mostrava sempre 1 membro a mais. GREATEST(..., 1)
+          -- garante no mínimo o dono em projetos antigos sem vínculo na tabela.
+          GREATEST((SELECT COUNT(*) FROM membros_equipe WHERE projeto_id = p.id), 1) AS membersCount
         FROM projetos p
         LEFT JOIN usuarios u ON p.criador_id = u.id
         WHERE p.id = ?
