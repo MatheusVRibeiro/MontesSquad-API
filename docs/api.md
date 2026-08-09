@@ -1445,3 +1445,72 @@ Lista a timeline de atividade do projeto: eventos de `eventos_projeto` ordenados
 ```
 
 - **Erros:** 403 (usuário não é membro/dono do projeto), 404 (projeto inexistente).
+---
+### 31. Evolução ETAPA 16 — Matching Desenvolvedor ↔ Projeto
+
+A ETAPA 16 cria o **matching Desenvolvedor ↔ Projeto**: o endpoint `GET /matching/projetos` recomenda projetos compatíveis com o perfil do usuário autenticado. O score é **100% determinístico** (fórmula fixa, sem IA) e **explicável** — cada recomendação retorna os **fatores com percentuais** que justificaram o score e uma lista `explicacao[]` com frases em pt-BR (critério de aceite da etapa: *"Score precisa ser explicável: API retorna os fatores que justificaram a recomendação"*). Os pesos estão **documentados em código** na constante `PESOS_MATCHING` (`src/services/matching.js`).
+
+**Fórmula do score — pesos `PESOS_MATCHING` (documentados em código):**
+
+| Peso | Critério | O que avalia |
+|---|---|---|
+| **40%** | Habilidades em comum | Interseção entre as habilidades do usuário (`habilidades_usuario`, seção 20) e as habilidades exigidas pelo projeto (`habilidades_projeto`). |
+| **25%** | Função procurada | Compatibilidade entre as funções de interesse do usuário (`funcoes_usuario`, seção 20) e as funções procuradas pelo projeto. |
+| **15%** | Nível desejado | Compatibilidade entre o nível do usuário e o `vagas.nivel_desejado` (seção 21). |
+| **10%** | Disponibilidade | Compatibilidade entre a `usuarios.disponibilidade_horas_semana` (seção 20) e a carga esperada pelo projeto. |
+| **10%** | Outras afinidades | Projeto aberto + vaga aberta + usuário ainda não é membro do projeto. |
+
+O `score` final é a soma dos percentuais atingidos por critério (0–100). **Não há mudança de banco nesta etapa** — o algoritmo reutiliza tabelas existentes (`habilidades_usuario`, `habilidades_projeto`, `funcoes_usuario`, `vagas`, `usuarios`), sem migração nem coluna nova.
+
+**Regras de negócio:**
+- **autenticação:** o endpoint exige token (`verificarToken`) — sem token ou token inválido, **401**;
+- **recomendação determinística:** o score usa pesos fixos (`PESOS_MATCHING`), sem IA e sem aleatoriedade — a mesma entrada produz sempre o mesmo resultado;
+- **score explicável (critério de aceite):** cada recomendação traz `fatores` com os percentuais por critério e `explicacao[]` em pt-BR justificando a recomendação — o consumidor nunca recebe um score "caixa-preta";
+- **não recomenda os próprios projetos:** projetos em que o usuário já é membro ou dono não entram na recomendação (fator "outras afinidades");
+- **ordenação:** recomendações ordenadas por `score` decrescente (mais compatíveis primeiro).
+
+#### `GET /matching/projetos` (Requer Token)
+Lista os projetos recomendados para o usuário autenticado, ordenados por `score` decrescente. Cada recomendação traz o `projeto` (`id`, `titulo`, `descricao`, `tecnologias` — mesmo shape de projeto da seção 3), o `score` (0–100), os `fatores` com os percentuais que justificaram o score e a `explicacao[]` em pt-BR. Sem Request Body.
+
+- **Response (200 OK):**
+
+```json
+{
+  "sucesso": true,
+  "message": "Projetos recomendados",
+  "nItens": 1,
+  "dados": {
+    "recomendacoes": [
+      {
+        "projeto": {
+          "id": 3,
+          "titulo": "Sistema Financeiro",
+          "descricao": "Plataforma de controle financeiro para pequenas empresas.",
+          "tecnologias": ["Node.js", "MySQL"]
+        },
+        "score": 92,
+        "fatores": {
+          "habilidades": 32,
+          "funcao": 25,
+          "nivel": 15,
+          "disponibilidade": 10,
+          "outras": 10
+        },
+        "explicacao": [
+          "Você possui 4 das 5 habilidades exigidas pelo projeto (Node.js, SQL, API REST, Git).",
+          "Sua função de interesse (Backend) está entre as funções procuradas pelo projeto.",
+          "Seu nível (intermediario) atende ao nível desejado das vagas (intermediario).",
+          "Sua disponibilidade semanal (20h) é compatível com a carga esperada do projeto.",
+          "O projeto está aberto, possui vagas abertas e você ainda não é membro."
+        ]
+      }
+    ]
+  }
+}
+```
+
+- **Erros:** 401 (token ausente/inválido — `verificarToken`).
+
+**Explicabilidade (critério de aceite):** o par `fatores` + `explicacao[]` torna o score auditável — `fatores` mostra o percentual de cada critério (a soma dos cinco fatores é o `score`) e `explicacao[]` traduz cada fator para uma frase em pt-BR. É isso que permite ao frontend mostrar o *porquê* da recomendação, e não apenas o número.
+
+**Frontend (squad-hub):** a seção **"Recomendados para você"** do dashboard consome `GET /matching/projetos` e exibe os projetos recomendados com o percentual de compatibilidade (`score`, ex.: "Compatibilidade: 92%") e as justificativas (`explicacao[]`).

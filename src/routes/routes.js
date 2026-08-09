@@ -32,6 +32,7 @@ const notificacoesController = require("../controllers/notificacoes");
 const reputacaoController = require("../controllers/reputacao");
 const portfolioController = require("../controllers/portfolio");
 const eventosProjetoController = require("../controllers/eventosProjeto");
+const matchingController = require("../controllers/matching");
 
 const {
   verificarToken,
@@ -141,6 +142,11 @@ router.get("/projetos/:projetoId/vagas", verificarToken, somenteMembroOuDonoDoPr
 router.post("/projetos/:projetoId/vagas", verificarToken, somenteDonoDoProjeto, vagasProjetoController.criarVaga);
 router.patch("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoDoProjeto, vagasProjetoController.atualizarVaga);
 router.delete("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoDoProjeto, vagasProjetoController.apagarVaga);
+
+// ROTAS MATCHING DESENVOLVEDOR ↔ PROJETO (ETAPA 16)
+// Recomenda projetos compatíveis com o perfil do usuário autenticado
+// (score determinístico 40/25/15/10/10 — src/services/matching.js)
+router.get("/matching/projetos", verificarToken, matchingController.recomendarProjetos);
 
 // ROTAS KANBAN TAREFAS
 // Somente dono ou membros do squad podem ver tarefas
