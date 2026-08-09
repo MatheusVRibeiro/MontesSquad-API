@@ -1,6 +1,7 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 const { criarNotificacao } = require("./notificacoes");
+const { registrarEvento } = require("../services/eventosProjeto");
 
 const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
 const STATUS_VALIDOS = ["todo", "doing", "review", "done"];
@@ -205,6 +206,17 @@ module.exports = {
         });
       }
 
+      // ETAPA 15 — timeline: task criada (best-effort — nunca derruba a criação)
+      await registrarEvento({
+        projeto_id: projetoId,
+        usuario_id: request.usuarioAutenticado.id,
+        tipo: "task_criada",
+        entidade_tipo: "tarefa",
+        entidade_id: String(novaTarefaId),
+        titulo: `Task criada: ${titulo}`,
+        metadados: { prioridade: prioridade || "medium" },
+      });
+
       return response.status(200).json({
         sucesso: true,
         message: "Tarefa criada com sucesso",
@@ -300,6 +312,7 @@ module.exports = {
 
       // ETAPA 10: conclusão MANUAL — XP concedido pelo backend (idempotente).
       // Se a tarefa mudou para 'done' e possui responsável, concede XP manual.
+      let concluidaNoPatch = false; // ETAPA 15 — timeline: flag p/ disparar task_concluida
       if (status === "done") {
         try {
           const [antes] = await db.query(
@@ -308,6 +321,7 @@ module.exports = {
           );
           const linha = antes[0];
           if (linha && linha.status === "done" && linha.responsavel_id) {
+            concluidaNoPatch = true;
             const xpService = require("../services/xp");
             await xpService.awardXpPorConclusaoManual({
               usuarioId: linha.responsavel_id,
@@ -377,6 +391,25 @@ module.exports = {
       );
       updatedTask.subtasks = subs.map(s => ({ ...s, done: !!s.done }));
       updatedTask.habilidades = await carregarHabilidadesTarefa(db, tarefaId);
+
+      // ETAPA 15 — timeline: task concluída manualmente (best-effort — nunca
+      // derruba a atualização). Dispara apenas quando o PATCH levou a tarefa
+      // com responsável para 'done' (mesma condição do XP).
+      if (concluidaNoPatch && updatedTask) {
+        try {
+          await registrarEvento({
+            projeto_id: projetoId,
+            usuario_id: updatedTask.responsavel_id || request.usuarioAutenticado.id,
+            tipo: "task_concluida",
+            entidade_tipo: "tarefa",
+            entidade_id: String(tarefaId),
+            titulo: `Task concluída: ${updatedTask.titulo || `#${tarefaId}`}`,
+            metadados: { via: "manual" },
+          });
+        } catch (eventoError) {
+          // evento não deve derrubar a atualização da tarefa
+        }
+      }
 
       return response.status(200).json({
         sucesso: true,
@@ -495,6 +528,20 @@ module.exports = {
         [tarefaId, projetoId]
       );
 
+      // ETAPA 15 — timeline: task assumida (best-effort — nunca derruba a assunção)
+      try {
+        await registrarEvento({
+          projeto_id: projetoId,
+          usuario_id: usuarioLogadoId,
+          tipo: "task_assumida",
+          entidade_tipo: "tarefa",
+          entidade_id: String(tarefaId),
+          titulo: `${request.usuarioAutenticado.nome || "Membro"} assumiu a task ${task[0]?.titulo || `#${tarefaId}`}`,
+        });
+      } catch (eventoError) {
+        // evento não deve derrubar a assunção da tarefa
+      }
+
       return response.status(200).json({
         sucesso: true,
         message: "Tarefa assumida com sucesso",
@@ -556,6 +603,24 @@ module.exports = {
         acao: "abandonou",
         realizadoPor: usuarioLogadoId,
       });
+
+      // ETAPA 15 — timeline: task abandonada (best-effort — nunca derruba o abandono)
+      try {
+        const [tituloRows] = await db.query(
+          "SELECT titulo FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+          [tarefaId, projetoId]
+        );
+        await registrarEvento({
+          projeto_id: projetoId,
+          usuario_id: usuarioLogadoId,
+          tipo: "task_abandonada",
+          entidade_tipo: "tarefa",
+          entidade_id: String(tarefaId),
+          titulo: `${request.usuarioAutenticado.nome || "Membro"} abandonou a task ${tituloRows[0]?.titulo || `#${tarefaId}`}`,
+        });
+      } catch (eventoError) {
+        // evento não deve derrubar o abandono da tarefa
+      }
 
       return response.status(200).json({
         sucesso: true,

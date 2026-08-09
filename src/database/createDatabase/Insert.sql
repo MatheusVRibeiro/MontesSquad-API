@@ -151,3 +151,11 @@ INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUE
 INSERT INTO reputacao_tecnica_usuario (usuario_id, score, tasks_verificadas, prs_mergeados, commits_validos, projetos_com_entrega) VALUES
 (1, 105.00, 1, 1, 5, 1),
 (2, 50.00, 1, 0, 0, 1);
+
+-- 17. Timeline de atividade do projeto (Evolução ETAPA 15 — eventos de exemplo
+-- consistentes com o seed: Roberto é membro ATIVO do projeto 1 (candidatura
+-- aceita), Fernanda é membro ATIVO do projeto 2; a tarefa 3 pertence ao projeto 1)
+INSERT INTO eventos_projeto (projeto_id, usuario_id, tipo, entidade_tipo, entidade_id, titulo, metadados) VALUES
+(1, 3, 'membro_entrou', NULL, NULL, 'Roberto Almeida entrou no squad', NULL),
+(2, 2, 'membro_entrou', NULL, NULL, 'Fernanda Costa entrou no squad', NULL),
+(1, 1, 'task_criada', 'tarefa', '3', 'Task criada: Modelar banco de dados', JSON_OBJECT('prioridade', 'high', 'dificuldade', 'avancada'));

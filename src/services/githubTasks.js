@@ -158,6 +158,28 @@ async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, c
     }
   }
 
+  // ETAPA 15 — timeline: task concluída por merge de PR (best-effort — nunca
+  // derruba o merge). Query separada em try/catch para não alterar o SELECT
+  // idempotente acima (ambiente intermediário sem a tabela não bloqueia nada).
+  try {
+    const [linhaEvento] = await executor.query(
+      "SELECT titulo, projeto_id FROM tarefas WHERE id = ? LIMIT 1",
+      [taskId]
+    );
+    const eventosProjeto = require("./eventosProjeto");
+    await eventosProjeto.registrarEvento({
+      projeto_id: linhaEvento[0]?.projeto_id ?? null,
+      usuario_id: task.responsavel_id || null,
+      tipo: "task_concluida",
+      entidade_tipo: "tarefa",
+      entidade_id: String(taskId),
+      titulo: `Task concluída: ${linhaEvento[0]?.titulo || `#${taskId}`}`,
+      metadados: { via: "github_merge", pr_number: prNumber },
+    });
+  } catch (eventoError) {
+    // evento não deve derrubar o processamento do merge
+  }
+
   return { concluida: true };
 }
 

@@ -1,6 +1,7 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 const { criarNotificacao } = require("./notificacoes");
+const { registrarEvento } = require("../services/eventosProjeto");
 
 module.exports = {
   async candidatarSe(request, response, next) {
@@ -232,6 +233,11 @@ module.exports = {
         connection = await db.getConnection();
         await connection.beginTransaction();
 
+        // ETAPA 15 — timeline: flag de novo membro (disparo do evento só após o
+        // COMMIT; o evento usa o pool global, fora da transação, para nunca
+        // ser revertido junto — e só quando o vínculo foi realmente criado).
+        let membroAdicionado = false;
+
         // Atualiza status da candidatura
         await connection.query(
           "UPDATE candidaturas SET status = ? WHERE id = ?",
@@ -275,6 +281,7 @@ module.exports = {
                 funcaoNomeVaga || "Membro",
               ]
             );
+            membroAdicionado = true;
 
             // ETAPA 5 — candidatura por vaga: incrementa a ocupação da vaga
             // e fecha a vaga quando preenchidas >= quantidade
@@ -314,6 +321,26 @@ module.exports = {
             descricao: "Sua candidatura foi aprovada",
             link: `/projetos/${projetoId}`,
           });
+        }
+
+        // ETAPA 15 — timeline: membro_entrou (best-effort — nunca derruba a
+        // aprovação). Dispara APÓS o commit e somente quando o vínculo foi
+        // criado nesta transação.
+        if (status === "aceito" && membroAdicionado) {
+          try {
+            const [usuarioRows] = await db.query(
+              "SELECT nome FROM usuarios WHERE id = ? LIMIT 1",
+              [candidatura.usuario_id]
+            );
+            await registrarEvento({
+              projeto_id: projetoId,
+              usuario_id: candidatura.usuario_id,
+              tipo: "membro_entrou",
+              titulo: `${usuarioRows[0]?.nome || "Novo membro"} entrou no squad`,
+            });
+          } catch (eventoError) {
+            // evento não deve derrubar a aprovação da candidatura
+          }
         }
 
         return response.status(200).json({

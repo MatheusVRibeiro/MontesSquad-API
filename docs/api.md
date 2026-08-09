@@ -1347,3 +1347,101 @@ O portfólio (seção 27) passa a respeitar a privacidade definida na ETAPA 14: 
 ```
 
 - **Erros:** 404 (usuário inexistente — `"Usuário não encontrado"`).
+---
+
+### 30. Evolução ETAPA 15 — Timeline de atividade do projeto
+
+A ETAPA 15 cria a **timeline de atividade do projeto**: um histórico legível das principais ações do squad — membros que entraram/saíram, tarefas criadas/assumidas/abandonadas/concluídas e atividade GitHub (commits e PRs) — gravado na nova tabela **`eventos_projeto`** e exposto pelo endpoint `GET /projetos/:projetoId/eventos`. Critério de aceite da etapa: a timeline é uma **visão de produto para usuários** e **não substitui logs técnicos** — o detalhamento técnico (commits, PRs e timeline da tarefa) continua disponível nas seções 14/15.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa15.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Tabela **`eventos_projeto`** | Evento da timeline de um projeto — `id BIGINT AUTO_INCREMENT PRIMARY KEY`, `projeto_id INT NOT NULL`, `usuario_id INT NULL` (autor do evento), `tipo VARCHAR(100) NOT NULL`, `entidade_tipo VARCHAR(50) NULL` (ex.: `tarefa`, `commit`, `pr`, `membro`), `entidade_id VARCHAR(100) NULL` (id da entidade relacionada), `titulo VARCHAR(255) NOT NULL`, `metadados JSON NULL`, `criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. |
+| FK `projeto_id` | → `projetos(id)` `ON DELETE CASCADE` — remover o projeto apaga todos os eventos da timeline. |
+| FK `usuario_id` | → `usuarios(id)` `ON DELETE SET NULL` — remover o usuário preserva o evento (`usuario_id` volta a `NULL`); o nome é resolvido por JOIN no momento da leitura. |
+
+**Tipos de evento (coluna `tipo`):**
+
+| tipo | Quando é registrado |
+|---|---|
+| `membro_entrou` | membro entra no squad (candidatura aprovada). |
+| `membro_saiu` | membro sai do projeto (saída voluntária ou remoção pelo dono). |
+| `task_criada` | tarefa criada no projeto. |
+| `task_assumida` | membro assume uma tarefa. |
+| `task_abandonada` | responsável abandona a tarefa. |
+| `commit_detectado` | commit detectado no repositório GitHub vinculado. |
+| `pr_aberto` | pull request aberto no repositório GitHub vinculado. |
+| `pr_mergeado` | pull request mergeado no repositório GitHub vinculado. |
+| `task_concluida` | tarefa concluída (kanban ou merge verificado). |
+| `reavaliacao` | reavaliação registrada — tipo previsto na ETAPA 15, disparo ainda não implementado (reservado para etapas futuras). |
+
+**Onde cada evento é disparado:**
+
+| tipo | Ponto de disparo |
+|---|---|
+| `membro_entrou` | `src/controllers/candidaturas.js` — na aprovação da candidatura (`PATCH /projetos/:projetoId/candidaturas/:candidaturaId`, seção 5). |
+| `membro_saiu` | `src/controllers/membros.js` — na saída do membro (`POST /projetos/:projetoId/sair`, seção 23) e na remoção pelo dono (`DELETE /projetos/:projetoId/membros/:usuarioId`, seção 23). |
+| `task_criada`, `task_assumida`, `task_abandonada`, `task_concluida` | `src/controllers/tarefas.js` — criar (`POST /projetos/:projetoId/tarefas`, seção 6), assumir (`POST .../assumir`, seção 15), abandonar (`POST .../abandonar`, seção 25) e concluir tarefa. |
+| `commit_detectado`, `pr_aberto`, `pr_mergeado` | `src/services/githubEvents.js` — no processamento dos eventos do GitHub (seções 14/15). |
+
+**Regras de negócio:**
+- **autenticação e autorização:** o endpoint exige token (`verificarToken`) e somente **membro ou dono** do projeto acessa a timeline (`somenteMembroOuDonoDoProjeto`) — visitante e usuário fora do projeto recebem **403**;
+- **visão de produto, não log técnico:** a timeline é um resumo legível das ações do squad e **não substitui os logs técnicos** (critério de aceite da ETAPA 15) — commits, PRs e timeline detalhada da tarefa continuam nas seções 14/15;
+- **ordenação:** eventos retornados do **mais recente para o mais antigo** (`criado_em` desc);
+- **limite:** a resposta traz no máximo os **50 eventos mais recentes** do projeto;
+- **`usuario_nome`:** cada evento inclui o nome do autor via JOIN com `usuarios`; usuário removido (`usuario_id NULL`) retorna `usuario_nome: null`;
+- **metadados:** `metadados` (JSON) carrega dados extras por tipo de evento (ex.: número/URL do PR, branch do commit) sem alterar o contrato de leitura.
+
+#### `GET /projetos/:projetoId/eventos` (Membro/dono)
+Lista a timeline de atividade do projeto: eventos de `eventos_projeto` ordenados por `criado_em` **desc** (mais recentes primeiro), limitados aos **50 mais recentes**, cada um com `usuario_nome`. Sem Request Body.
+
+- **Response (200 OK):**
+
+```json
+{
+  "sucesso": true,
+  "message": "Eventos do projeto",
+  "nItens": 3,
+  "dados": [
+    {
+      "id": 1,
+      "projeto_id": 10,
+      "usuario_id": 5,
+      "tipo": "task_concluida",
+      "entidade_tipo": "tarefa",
+      "entidade_id": "51",
+      "titulo": "API de autenticação concluída",
+      "metadados": { "status": "done" },
+      "criado_em": "2026-08-09T14:30:00.000Z",
+      "usuario_nome": "Maria Souza"
+    },
+    {
+      "id": 2,
+      "projeto_id": 10,
+      "usuario_id": 5,
+      "tipo": "commit_detectado",
+      "entidade_tipo": "commit",
+      "entidade_id": "9f2a1c",
+      "titulo": "Commit 9f2a1c — Ajusta autenticação",
+      "metadados": { "branch": "main", "sha": "9f2a1c..." },
+      "criado_em": "2026-08-09T13:12:00.000Z",
+      "usuario_nome": "Maria Souza"
+    },
+    {
+      "id": 3,
+      "projeto_id": 10,
+      "usuario_id": 5,
+      "tipo": "pr_mergeado",
+      "entidade_tipo": "pr",
+      "entidade_id": "15",
+      "titulo": "PR #15 mergeado — API de autenticação",
+      "metadados": { "prNumero": 15, "prUrl": "https://github.com/organizacao/montesquad/pull/15" },
+      "criado_em": "2026-08-09T14:35:00.000Z",
+      "usuario_nome": "Maria Souza"
+    }
+  ]
+}
+```
+
+- **Erros:** 403 (usuário não é membro/dono do projeto), 404 (projeto inexistente).

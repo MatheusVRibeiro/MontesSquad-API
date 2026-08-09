@@ -55,6 +55,48 @@ async function processarPush(payload, context = {}) {
     await githubTasks.atualizarAtividadeTask(task.id);
   }
 
+  // ETAPA 15 — timeline: commit detectado (best-effort — o INSERT extra NUNCA
+  // afeta a idempotência do webhook; falha é absorvida e o push segue).
+  if (salvos > 0) {
+    try {
+      const primeiro = commits.find((c) => c && c.id) || {};
+      const autor = primeiro.author?.name || primeiro.committer?.name || "Desconhecido";
+      const autorGithubId = primeiro.author?.id || primeiro.committer?.id || null;
+
+      // Resolve o usuário interno pelo github_user_id (best-effort: sem match,
+      // o evento fica com usuario_id null e o nome do autor no título).
+      let autorUsuarioId = null;
+      if (autorGithubId) {
+        try {
+          const [autorRows] = await db.query(
+            "SELECT id FROM usuarios WHERE github_user_id = ? LIMIT 1",
+            [autorGithubId]
+          );
+          autorUsuarioId = autorRows[0]?.id ?? null;
+        } catch {
+          // resolução do autor não deve derrubar o evento
+        }
+      }
+
+      const eventosProjeto = require("./eventosProjeto");
+      await eventosProjeto.registrarEvento({
+        projeto_id: task.projeto_id,
+        usuario_id: autorUsuarioId,
+        tipo: "commit_detectado",
+        entidade_tipo: "tarefa",
+        entidade_id: String(task.id),
+        titulo: `${autor} fez push (${salvos} commits)`,
+        metadados: {
+          branch,
+          quantidade: salvos,
+          sha_curto: primeiro.id ? String(primeiro.id).slice(0, 7) : null,
+        },
+      });
+    } catch (eventoError) {
+      // evento não deve derrubar o processamento do push
+    }
+  }
+
   return {
     processado: true,
     motivo: "commits_salvos",
@@ -115,6 +157,23 @@ async function processarPullRequest(payload, context = {}) {
       // notificação não deve derrubar o processamento
     }
 
+    // ETAPA 15 — timeline: PR aberto (best-effort — o INSERT extra não afeta a
+    // idempotência do webhook; falha é absorvida e o processamento segue).
+    try {
+      const eventosProjeto = require("./eventosProjeto");
+      await eventosProjeto.registrarEvento({
+        projeto_id: task.projeto_id,
+        usuario_id: task.responsavel_id || null,
+        tipo: "pr_aberto",
+        entidade_tipo: "pull_request",
+        entidade_id: String(prNumber),
+        titulo: `PR #${prNumber} aberto: ${task.titulo}`,
+        metadados: { autor: pr.user?.login || null, branch },
+      });
+    } catch (eventoError) {
+      // evento não deve derrubar o processamento do PR
+    }
+
     return { processado: true, motivo: "pr_aberto", deliveryId, taskId: task.id, prNumber };
   }
 
@@ -166,6 +225,23 @@ async function processarPullRequest(payload, context = {}) {
           } catch (e) {
             console.error("[githubEvents] Falha ao recalcular reputação técnica:", e.message);
           }
+        }
+
+        // ETAPA 15 — timeline: PR mergeado (best-effort; dispara SÓ quando o
+        // merge concluiu AGORA — delivery repetido (jaConcluida) não duplica).
+        try {
+          const eventosProjeto = require("./eventosProjeto");
+          await eventosProjeto.registrarEvento({
+            projeto_id: task.projeto_id,
+            usuario_id: task.responsavel_id || null,
+            tipo: "pr_mergeado",
+            entidade_tipo: "pull_request",
+            entidade_id: String(prNumber),
+            titulo: `PR #${prNumber} mergeado: ${task.titulo}`,
+            metadados: { autor: pr.user?.login || null, branch, merged_at: mergedAt },
+          });
+        } catch (eventoError) {
+          // evento não deve derrubar o processamento do merge
         }
       }
       return {

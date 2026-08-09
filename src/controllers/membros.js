@@ -11,6 +11,7 @@
 //         voluntária: SOFT-DELETE status='saiu' + libera a vaga. Owner NÃO pode sair (400).
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { registrarEvento } = require("../services/eventosProjeto");
 
 const STATUS_ATIVO = "ativo";
 
@@ -133,6 +134,22 @@ module.exports = {
         [projetoId, usuarioId]
       );
 
+      // ETAPA 15 — timeline: membro removido (best-effort — nunca derruba a remoção)
+      try {
+        const [usuarioRows] = await db.query(
+          "SELECT nome FROM usuarios WHERE id = ? LIMIT 1",
+          [usuarioId]
+        );
+        await registrarEvento({
+          projeto_id: projetoId,
+          usuario_id: usuarioId,
+          tipo: "membro_saiu",
+          titulo: `${usuarioRows[0]?.nome || "Membro"} foi removido do squad`,
+        });
+      } catch (eventoError) {
+        // evento não deve derrubar a remoção do membro
+      }
+
       return response.status(200).json({
         sucesso: true,
         message: "Membro removido da equipe com sucesso",
@@ -185,6 +202,14 @@ module.exports = {
         "UPDATE candidaturas SET status = 'rejeitado' WHERE projeto_id = ? AND usuario_id = ?",
         [projetoId, usuarioId]
       );
+
+      // ETAPA 15 — timeline: membro saiu do squad (best-effort — nunca derruba a saída)
+      await registrarEvento({
+        projeto_id: projetoId,
+        usuario_id: usuarioId,
+        tipo: "membro_saiu",
+        titulo: `${request.usuarioAutenticado.nome || "Membro"} saiu do squad`,
+      });
 
       return response.status(200).json({
         sucesso: true,

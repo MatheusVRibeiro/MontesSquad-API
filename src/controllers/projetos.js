@@ -1,5 +1,6 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { registrarEvento } = require("../services/eventosProjeto");
 
 module.exports = {
   async listarProjetos(request, response, next) {
@@ -96,6 +97,15 @@ module.exports = {
         "INSERT INTO membros_equipe (projeto_id, usuario_id) VALUES (?, ?)",
         [result.insertId, criador_id]
       );
+
+      // ETAPA 15 — timeline: criador entrou no squad (best-effort — o
+      // registrarEvento nunca lança; não derruba o cadastro do projeto)
+      await registrarEvento({
+        projeto_id: result.insertId,
+        usuario_id: criador_id,
+        tipo: "membro_entrou",
+        titulo: `${request.usuarioAutenticado?.nome || "Criador"} entrou no squad`,
+      });
 
       const dados = {
         id: result.insertId,

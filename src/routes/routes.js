@@ -31,6 +31,7 @@ const vagasProjetoController = require("../controllers/vagasProjeto");
 const notificacoesController = require("../controllers/notificacoes");
 const reputacaoController = require("../controllers/reputacao");
 const portfolioController = require("../controllers/portfolio");
+const eventosProjetoController = require("../controllers/eventosProjeto");
 
 const {
   verificarToken,
@@ -158,6 +159,10 @@ router.post("/projetos/:projetoId/tarefas/:tarefaId/abandonar", verificarToken, 
 router.post("/projetos/:projetoId/tarefas/:tarefaId/remover-responsavel", verificarToken, somenteDonoDoProjeto, tarefasController.removerResponsavelTarefa);
 router.post("/projetos/:projetoId/tarefas/:tarefaId/reatribuir", verificarToken, somenteDonoDoProjeto, tarefasController.reatribuirTarefa);
 router.get("/projetos/:projetoId/tarefas/:tarefaId/historico-responsaveis", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.historicoResponsaveisTarefa);
+
+// ROTAS TIMELINE DO PROJETO (ETAPA 15 — atividade do squad)
+// Membro/dono consultam o histórico legível das ações do projeto
+router.get("/projetos/:projetoId/eventos", verificarToken, somenteMembroOuDonoDoProjeto, eventosProjetoController.listarEventos);
 
 // ROTAS GITHUB (integração GitHub-Kanban)
 // Webhook público: autenticação por assinatura HMAC (NÃO usa verificarToken)

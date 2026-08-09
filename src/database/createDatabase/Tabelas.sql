@@ -281,6 +281,24 @@ CREATE TABLE eventos_xp (
     FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- 11b. Timeline de atividade do projeto (Evolução ETAPA 15 — histórico legível
+-- das ações do squad; visão de produto, NÃO substitui logs técnicos). Tipo:
+-- membro_entrou, membro_saiu, task_criada, task_assumida, task_abandonada,
+-- commit_detectado, pr_aberto, pr_mergeado, task_concluida, reavaliacao.
+CREATE TABLE eventos_projeto (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    projeto_id INT NOT NULL,
+    usuario_id INT NULL,
+    tipo VARCHAR(100) NOT NULL,
+    entidade_tipo VARCHAR(50) NULL,
+    entidade_id VARCHAR(100) NULL,
+    titulo VARCHAR(255) NOT NULL,
+    metadados JSON NULL,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- 12. Subtarefas (Checklist)
 CREATE TABLE subtarefas (
     id INT AUTO_INCREMENT PRIMARY KEY,
