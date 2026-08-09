@@ -1086,3 +1086,65 @@ A listagem agora retorna **apenas tarefas ativas**, aplicando o filtro `excluida
 
 #### Histórico de participação permanente — membros `saiu`/`removido` continuam no perfil
 O perfil do usuário continua exibindo o projeto no histórico mesmo depois de **sair** (`POST /projetos/:projetoId/sair`) ou ser **removido** (`DELETE /projetos/:projetoId/membros/:usuarioId`) — as contribuições passadas não são apagadas. O registro de `membros_equipe` permanece com `status = 'saiu'`/`'removido'` e `saiu_em` preenchido (ETAPA 6), e as métricas históricas legítimas (tasks verificadas, commits, reputação) continuam vinculadas ao usuário/projeto. Remover/sair do squad **não elimina portfólio nem métricas históricas** (critério de aceite da ETAPA 10).
+---
+
+### 27. Evolução ETAPA 11 — Portfólio verificável
+
+A ETAPA 11 transforma **entregas GitHub em evidência profissional verificável no perfil público**: o novo endpoint **público** `GET /usuarios/:id/portfolio` agrega, por projeto, a participação e as contribuições reais do usuário — **função exercida**, **tasks verificadas por merge**, **commits**, **PRs mergeados** e **tecnologias** — sem exigir login. O perfil público consegue mostrar evidências sem vazar dados privados (critério de aceite da ETAPA 11). A etapa **não altera o banco de dados**: é uma agregação somente-leitura sobre tabelas existentes (ETAPAS 1/2, 4, 6, 7 e 10), sem migração nova.
+
+**Fontes de dados (agregação somente-leitura — sem migração):**
+
+| Fonte | O que fornece | Critério |
+|---|---|---|
+| **`membros_equipe`** | **participação** do usuário (projetos + função) | JOIN `projetos`; entram **todos** os `status` (`ativo`/`saiu`/`removido`) — sair/remover do squad **não elimina o portfólio** (contrato ETAPA 10, seção 26). Função via `funcoes` — `COALESCE(membros_equipe.funcao_id, vagas_projeto.funcao_id)` — com fallback para `membros_equipe.funcao` (ETAPA 4, seção 21; ETAPA 6, seção 23). Projetos ordenados pela entrada mais recente (`entrou_em DESC`). |
+| **`tarefas`** | `tasksVerificadas` | tasks do usuário (`responsavel_id = :id`) concluídas por merge GitHub (`concluida_via = 'github_merge'` — seção 15) e **não excluídas** (`excluida_em IS NULL` — soft-delete ETAPA 10, seção 26, não conta). |
+| **`github_commits`** | `commits` | commits registrados pelo webhook (seções 12/18) cujo autor GitHub está vinculado à conta MontesSquad (`usuarios.github_user_id = github_commits.author_github_id`), agrupados por projeto. |
+| **`github_pull_requests`** | `prsMergeados` | PRs com `estado = 'merged'` vinculados a tasks do usuário (JOIN `tarefas` por `tarefa_id` + `responsavel_id = :id`) — mesma semântica do Top Contributors (seção 17). |
+| **`habilidades_projeto`** | `tecnologias[]` | nomes das habilidades do projeto (JOIN `habilidades`, seção 9), ordenados alfabeticamente (`ORDER BY h.nome`). |
+
+**Regras de negócio:**
+- o endpoint é **público** — não exige token: qualquer visitante do perfil público consulta o portfólio sem login;
+- **404** apenas quando o usuário **não existe** (`SELECT id FROM usuarios` → `"Usuário não encontrado"`); usuário existente **sem participação** responde `200` com `projetos: []`;
+- cada item de `projetos[]` traz `projetoId`, `projetoNome`, `funcao` (ou `null`), `tasksVerificadas`, `commits`, `prsMergeados`, `tecnologias` (array) e `contribuicoes` (array);
+- `contribuicoes[]` é a **evidência por task do próprio usuário**: `tarefaId`, `titulo`, `prNumero`, `prUrl`, `commits` (contagem de commits da task) e `mergeadoEm`, da mais recente para a mais antiga (`concluida_em DESC`); sem task verificada → `contribuicoes: []`;
+- toda métrica é agregada **somente para o usuário da rota** — o endpoint nunca expõe evidência de outros membros do projeto.
+
+**Regra de privacidade (repositórios privados):**
+- o portfólio é público, mas **não vaza detalhes técnicos de repositório privado**: para projetos cujo repositório é **privado**, os detalhes técnicos (títulos de tarefa/PR, número e URL do PR, mensagens de commit) ficam **ocultos** e a contribuição é exibida apenas como **"Contribuição verificada em projeto privado"**;
+- permanecem visíveis somente **contagens agregadas** (`tasksVerificadas`, `commits`, `prsMergeados`), **tecnologias** e a evidência por task **do próprio usuário** — sem expor código, branches, mensagens ou URLs internas;
+- critério de aceite da ETAPA 11: o **perfil público mostra evidências sem vazar dados privados**.
+
+#### `GET /usuarios/:id/portfolio` (Público — sem token)
+Portfólio público e verificável do usuário: agrega por projeto a participação (`membros_equipe`), tasks verificadas por merge GitHub, commits, PRs mergeados e tecnologias. Sem Request Body.
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Portfólio do usuário",
+    "nItens": 1,
+    "dados": {
+      "projetos": [
+        {
+          "projetoId": 5,
+          "projetoNome": "Sistema Financeiro",
+          "funcao": "Backend",
+          "tasksVerificadas": 4,
+          "commits": 32,
+          "prsMergeados": 4,
+          "tecnologias": ["Node.js", "MySQL"],
+          "contribuicoes": [
+            {
+              "tarefaId": 51,
+              "titulo": "API de autenticação",
+              "prNumero": 15,
+              "prUrl": "https://github.com/organizacao/sistema-financeiro/pull/15",
+              "commits": 8,
+              "mergeadoEm": "2026-08-01T14:30:00.000Z"
+            }
+          ]
+        }
+      ]
+    }
+  }
+  ```
+- **Erros:** 404 (usuário inexistente — `"Usuário não encontrado"`).

@@ -30,6 +30,7 @@ const tarefasController = require("../controllers/tarefas");
 const vagasProjetoController = require("../controllers/vagasProjeto");
 const notificacoesController = require("../controllers/notificacoes");
 const reputacaoController = require("../controllers/reputacao");
+const portfolioController = require("../controllers/portfolio");
 
 const {
   verificarToken,
@@ -73,6 +74,11 @@ router.post("/notificacoes/ler-tudo", verificarToken, notificacoesController.mar
 
 // ROTAS REPUTAÇÃO
 router.get("/usuarios/:id/reputacao", verificarToken, reputacaoController.obterReputacao);
+
+// ROTAS PORTFÓLIO VERIFICÁVEL (ETAPA 11)
+// Público: perfil público mostra as evidências agregadas por projeto sem login
+// (regra de privacidade ETAPA 11/14: sem detalhes técnicos de repo privado)
+router.get("/usuarios/:id/portfolio", portfolioController.obterPortfolio);
 
 // ROTAS PROJETOS
 // Todos logados podem explorar projetos
