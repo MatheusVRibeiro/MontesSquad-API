@@ -91,14 +91,16 @@ function criarPoolEtapa11({ usuarioExiste = true, comProjetos = true } = {}) {
       resposta: () => (usuarioExiste ? [[{ id: 5 }], []] : [[], []]),
     },
     // Q2 — participações (membros_equipe JOIN projetos + funcoes/vagas)
+    // ETAPA 14: linhas carregam visibilidade/permitirPortfolioPublico (o
+    // service decide privado:true a partir delas — público + permitido expõe)
     {
       match: (sql) => /from membros_equipe/.test(sql),
       resposta: () =>
         comProjetos
           ? [
               [
-                { projetoId: 1, projetoNome: "Sistema de Vendas", funcao: "Backend" },
-                { projetoId: 2, projetoNome: "App Mobile", funcao: "Frontend" },
+                { projetoId: 1, projetoNome: "Sistema de Vendas", funcao: "Backend", visibilidade: "publico", permitirPortfolioPublico: 1 },
+                { projetoId: 2, projetoNome: "App Mobile", funcao: "Frontend", visibilidade: "publico", permitirPortfolioPublico: 1 },
               ],
               [],
             ]

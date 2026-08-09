@@ -17,7 +17,8 @@
     "db:etapa7": "node scripts/migrar_evolucao_etapa7.js",
     "db:etapa9": "node scripts/migrar_evolucao_etapa9.js",
     "db:etapa10": "node scripts/migrar_evolucao_etapa10.js",
-    "db:etapa12": "node scripts/migrar_evolucao_etapa12.js"
+    "db:etapa12": "node scripts/migrar_evolucao_etapa12.js",
+    "db:etapa14": "node scripts/migrar_evolucao_etapa14.js"
   },
   "keywords": [
     "Node JS",

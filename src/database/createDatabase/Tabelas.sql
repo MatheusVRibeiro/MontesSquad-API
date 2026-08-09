@@ -34,6 +34,8 @@ CREATE TABLE projetos (
     titulo VARCHAR(150) NOT NULL,
     descricao TEXT,
     status ENUM('aberto', 'em_andamento', 'finalizado') DEFAULT 'aberto',
+    visibilidade ENUM('publico','privado') DEFAULT 'publico',
+    permitir_portfolio_publico BOOLEAN DEFAULT TRUE,
     limite_membros INT DEFAULT 5 NOT NULL,
     repositorio_url VARCHAR(255) NULL,
     figma_url VARCHAR(255) NULL,

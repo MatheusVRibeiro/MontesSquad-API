@@ -133,7 +133,10 @@ module.exports = {
         repositorioUrl,
         figmaUrl,
         discordUrl,
-        documentacaoUrl
+        documentacaoUrl,
+        visibilidade,
+        permitir_portfolio_publico,
+        permitirPortfolioPublico
       } = request.body;
       const { id } = request.params;
 
@@ -141,6 +144,32 @@ module.exports = {
       const fgmUrl = figma_url !== undefined ? figma_url : figmaUrl;
       const dscUrl = discord_url !== undefined ? discord_url : discordUrl;
       const docUrl = documentacao_url !== undefined ? documentacao_url : documentacaoUrl;
+
+      // ETAPA 14 — visibilidade ENUM('publico','privado'): valor inválido → 400
+      if (visibilidade !== undefined && !["publico", "privado"].includes(visibilidade)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "visibilidade deve ser 'publico' ou 'privado'",
+          dados: null,
+        });
+      }
+
+      // ETAPA 14 — permitir_portfolio_publico: booleano (aceita true/false/1/0)
+      let permitirPortfolioPublicoFinal;
+      if (permitir_portfolio_publico !== undefined || permitirPortfolioPublico !== undefined) {
+        const bruto = permitir_portfolio_publico !== undefined ? permitir_portfolio_publico : permitirPortfolioPublico;
+        if (bruto === true || bruto === 1 || bruto === "1" || bruto === "true") {
+          permitirPortfolioPublicoFinal = 1;
+        } else if (bruto === false || bruto === 0 || bruto === "0" || bruto === "false") {
+          permitirPortfolioPublicoFinal = 0;
+        } else {
+          return response.status(400).json({
+            sucesso: false,
+            message: "permitir_portfolio_publico deve ser um booleano (true/false ou 1/0)",
+            dados: null,
+          });
+        }
+      }
 
       const fields = [];
       const values = [];
@@ -150,6 +179,8 @@ module.exports = {
       if (descricao !== undefined) { fields.push("descricao = ?"); values.push(descricao); }
       if (status !== undefined) { fields.push("status = ?"); values.push(status); }
       if (limite_membros !== undefined) { fields.push("limite_membros = ?"); values.push(limite_membros); }
+      if (visibilidade !== undefined) { fields.push("visibilidade = ?"); values.push(visibilidade); }
+      if (permitirPortfolioPublicoFinal !== undefined) { fields.push("permitir_portfolio_publico = ?"); values.push(permitirPortfolioPublicoFinal); }
       if (repoUrl !== undefined) { fields.push("repositorio_url = ?"); values.push(repoUrl); }
       if (fgmUrl !== undefined) { fields.push("figma_url = ?"); values.push(fgmUrl); }
       if (dscUrl !== undefined) { fields.push("discord_url = ?"); values.push(dscUrl); }
@@ -171,7 +202,7 @@ module.exports = {
 
       // Busca dados atuais do projeto para responder com o objeto completo
       const [projRows] = await db.query(
-        "SELECT id, criador_id, titulo, descricao, status, limite_membros, repositorio_url, figma_url, discord_url, documentacao_url FROM projetos WHERE id = ? LIMIT 1",
+        "SELECT id, criador_id, titulo, descricao, status, visibilidade, permitir_portfolio_publico, limite_membros, repositorio_url, figma_url, discord_url, documentacao_url FROM projetos WHERE id = ? LIMIT 1",
         [id]
       );
 
@@ -216,6 +247,8 @@ module.exports = {
           p.titulo AS name, 
           p.descricao AS description, 
           p.status, 
+          p.visibilidade AS visibilidade,
+          p.permitir_portfolio_publico AS permitirPortfolioPublico,
           p.limite_membros AS membersLimit, 
           p.repositorio_url AS repositorioUrl,
           p.figma_url AS figmaUrl,
@@ -321,6 +354,17 @@ module.exports = {
         projeto.tasks = [];
         projeto.messages = [];
         projeto.applications = [];
+
+        // ETAPA 14 (regra 4 — URL privada não exposta indevidamente):
+        // projeto PRIVADO + usuário fora do squad → oculta as URLs de
+        // repositório e ferramentas (repositorioUrl/figmaUrl/discordUrl/
+        // documentacaoUrl). Projeto público mantém as URLs (são públicas).
+        if (projeto.visibilidade === "privado") {
+          projeto.repositorioUrl = null;
+          projeto.figmaUrl = null;
+          projeto.discordUrl = null;
+          projeto.documentacaoUrl = null;
+        }
       } else {
         // 4.1 Busca tarefas do Kanban (com subtarefas) — ETAPA 10: filtra
         // tarefas arquivadas (soft-delete excluida_em IS NULL); o histórico

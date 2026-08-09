@@ -26,11 +26,11 @@ INSERT INTO funcoes (nome) VALUES
 ('Product');
 
 -- 3. Inserir Projetos
-INSERT INTO projetos (criador_id, titulo, descricao, status, limite_membros, repositorio_url, figma_url, discord_url, documentacao_url) VALUES 
-(1, 'API de Gestão de Frota', 'Backend para controle de veículos e manutenções.', 'aberto', 6, 'https://github.com/lucas-mendes/api-gestao-frota', 'https://figma.com/file/gestao-frota-mock', 'https://discord.gg/invite-frota', 'https://notion.so/wiki-gestao-frota'),
-(2, 'Dashboard de Vendas', 'Sistema de BI para análise de faturamento.', 'em_andamento', 5, 'https://github.com/fernanda-costa/dashboard-vendas', 'https://figma.com/file/dashboard-mock', 'https://discord.gg/invite-vendas', 'https://notion.so/wiki-dashboard-vendas'),
-(3, 'App de Delivery Local', 'Aplicativo para conectar pequenos comércios a clientes.', 'aberto', 4, 'https://github.com/roberto-almeida/delivery-local', 'https://figma.com/file/delivery-mock', 'https://discord.gg/invite-delivery', 'https://notion.so/wiki-delivery-local'),
-(4, 'Plataforma de Cursos', 'E-learning com sistema de gamificação.', 'finalizado', 4, 'https://github.com/juliana-silva/plataforma-cursos', 'https://figma.com/file/cursos-mock', 'https://discord.gg/invite-cursos', 'https://notion.so/wiki-plataforma-cursos');
+INSERT INTO projetos (criador_id, titulo, descricao, status, visibilidade, permitir_portfolio_publico, limite_membros, repositorio_url, figma_url, discord_url, documentacao_url) VALUES
+(1, 'API de Gestão de Frota', 'Backend para controle de veículos e manutenções.', 'aberto', 'publico', TRUE, 6, 'https://github.com/lucas-mendes/api-gestao-frota', 'https://figma.com/file/gestao-frota-mock', 'https://discord.gg/invite-frota', 'https://notion.so/wiki-gestao-frota'),
+(2, 'Dashboard de Vendas', 'Sistema de BI para análise de faturamento.', 'em_andamento', 'publico', TRUE, 5, 'https://github.com/fernanda-costa/dashboard-vendas', 'https://figma.com/file/dashboard-mock', 'https://discord.gg/invite-vendas', 'https://notion.so/wiki-dashboard-vendas'),
+(3, 'App de Delivery Local', 'Aplicativo para conectar pequenos comércios a clientes.', 'aberto', 'publico', TRUE, 4, 'https://github.com/roberto-almeida/delivery-local', 'https://figma.com/file/delivery-mock', 'https://discord.gg/invite-delivery', 'https://notion.so/wiki-delivery-local'),
+(4, 'Plataforma de Cursos', 'E-learning com sistema de gamificação.', 'finalizado', 'publico', TRUE, 4, 'https://github.com/juliana-silva/plataforma-cursos', 'https://figma.com/file/cursos-mock', 'https://discord.gg/invite-cursos', 'https://notion.so/wiki-plataforma-cursos');
 
 -- 4. Inserir Habilidades dos Usuários
 INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel) VALUES 

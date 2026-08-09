@@ -5,11 +5,13 @@
 //
 // Endpoint público: GET /usuarios/:id/portfolio (perfil público mostra o
 // agregado; a regra de privacidade da ETAPA 11/14 — não vazar detalhes de
-// repositório privado — é respeitada expondo apenas contagens agregadas e
-// a evidência por task do PRÓPRIO usuário).
+// repositório privado — é respeitada expondo apenas contagens agregadas e,
+// quando o projeto permite (visibilidade='publico' E permitir_portfolio_publico),
+// a evidência por task do PRÓPRIO usuário. Projeto privado/sem autorização →
+// privado:true e contribuicoes[] vazio).
 //
 // Retorno: { projetos: [{ projetoId, projetoNome, funcao, tasksVerificadas,
-//   commits, prsMergeados, tecnologias[], contribuicoes[] }] }
+//   commits, prsMergeados, tecnologias[], contribuicoes[], privado? }] }
 // null quando o usuário não existe.
 const db = require("../database/connection");
 
@@ -22,8 +24,12 @@ async function obterPortfolio(usuarioId) {
   //    sair/remover do squad não elimina o portfólio (contrato ETAPA 10).
   //    Função vem de funcoes via membros_equipe.funcao_id ou vaga
   //    (vagas_projeto.funcao_id), com fallback para membros_equipe.funcao.
+  //    ETAPA 14: visibilidade/permitir_portfolio_publico decidem se o
+  //    projeto expõe as contribuições detalhadas publicamente (regra 3).
   const [membros] = await db.query(
     `SELECT p.id AS projetoId, p.titulo AS projetoNome,
+            p.visibilidade AS visibilidade,
+            p.permitir_portfolio_publico AS permitirPortfolioPublico,
             COALESCE(f.nome, me.funcao) AS funcao
      FROM membros_equipe me
      JOIN projetos p ON p.id = me.projeto_id
@@ -126,7 +132,14 @@ async function obterPortfolio(usuarioId) {
 
   const projetos = membros.map((m) => {
     const chave = String(m.projetoId);
-    return {
+    // ETAPA 14 (regra 3): projeto privado OU sem autorização de portfólio
+    // público → marca privado:true e NÃO expõe as contribuições detalhadas
+    // (titulo/prUrl/prNumero) — apenas contagens agregadas. O frontend
+    // (VerifiedContributions.tsx) renderiza "Contribuição verificada em
+    // projeto privado" quando privado=true. Fail-closed: coluna ausente
+    // (undefined/0) também é tratada como privado.
+    const ehPrivado = m.visibilidade === "privado" || !m.permitirPortfolioPublico;
+    const projeto = {
       projetoId: Number(m.projetoId),
       projetoNome: m.projetoNome || "Projeto",
       funcao: m.funcao || null,
@@ -134,8 +147,10 @@ async function obterPortfolio(usuarioId) {
       commits: commitsPorProjeto[chave] || 0,
       prsMergeados: prsPorProjeto[chave] || 0,
       tecnologias: tecnologiasPorProjeto[chave] || [],
-      contribuicoes: contribuicoesPorProjeto[chave] || [],
+      contribuicoes: ehPrivado ? [] : contribuicoesPorProjeto[chave] || [],
     };
+    if (ehPrivado) projeto.privado = true;
+    return projeto;
   });
 
   return { projetos };

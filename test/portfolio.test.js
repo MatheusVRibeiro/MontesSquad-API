@@ -31,14 +31,15 @@ function criarPoolPortfolio() {
     },
     {
       // 2. participação — membros_equipe JOIN projetos JOIN vagas/funcoes
+      //    (ETAPA 14: inclui visibilidade/permitir_portfolio_publico)
       match: (sql) =>
-        /^select p\.id as projetoid, p\.titulo as projetonome, coalesce\(f\.nome, me\.funcao\) as funcao from membros_equipe me/.test(
+        /^select p\.id as projetoid, p\.titulo as projetonome, p\.visibilidade as visibilidade, p\.permitir_portfolio_publico as permitirportfoliopublico, coalesce\(f\.nome, me\.funcao\) as funcao from membros_equipe me/.test(
           sql
         ),
       resposta: () => [
         [
-          { projetoId: 5, projetoNome: "Sistema Financeiro", funcao: "Backend" },
-          { projetoId: 6, projetoNome: "Site Institucional", funcao: "Frontend" },
+          { projetoId: 5, projetoNome: "Sistema Financeiro", funcao: "Backend", visibilidade: "publico", permitirPortfolioPublico: 1 },
+          { projetoId: 6, projetoNome: "Site Institucional", funcao: "Frontend", visibilidade: "publico", permitirPortfolioPublico: 1 },
         ],
         [],
       ],
@@ -155,7 +156,7 @@ describe("ETAPA 11 — GET /usuarios/:id/portfolio (portfólio verificável)", (
 
     const membros = buscarChamada(
       pool,
-      /select p\.id as projetoid, p\.titulo as projetonome, coalesce\(f\.nome, me\.funcao\) as funcao from membros_equipe me/
+      /select p\.id as projetoid, p\.titulo as projetonome, p\.visibilidade as visibilidade, p\.permitir_portfolio_publico as permitirportfoliopublico, coalesce\(f\.nome, me\.funcao\) as funcao from membros_equipe me/
     );
     expect(membros).toBeDefined();
     expect(/status = 'ativo'/.test(membros.sql)).toBe(false);

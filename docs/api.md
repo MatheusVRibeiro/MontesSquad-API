@@ -1213,3 +1213,137 @@ Retorna a reputação técnica do usuário: o `score` atual e as evidências que
   }
   ```
 - **Erros:** 404 (usuário inexistente).
+---
+
+### 29. Evolução ETAPA 14 — Privacidade e repositórios privados
+
+A ETAPA 14 formaliza a **privacidade de repositórios e dados GitHub**: garante que a integração GitHub **não exponha conteúdo privado** — nem para visitantes, nem para usuários fora do projeto, nem no portfólio público. A ETAPA 11 (seção 27) já ocultava detalhes técnicos de repositórios privados no portfólio; a ETAPA 14 **generaliza e centraliza** esse controle com duas colunas novas em `projetos` (`visibilidade` e `permitir_portfolio_publico`) e um serviço interno único de decisão de privacidade.
+
+**Regras de privacidade (obrigatórias da etapa):**
+
+1. **visitante não vê detalhes GitHub privados** — endpoints públicos (ex.: portfólio) nunca expõem conteúdo técnico de repositório privado;
+2. **usuário fora do projeto não vê branch/commit/PR privado** — a atividade GitHub do repositório (branch automática, commits, PRs — seções 14/15) só é exposta a membros/dono do projeto;
+3. **portfólio público não mostra mensagem de commit privada sem autorização** — mensagens de commit/PR de projeto privado ficam ocultas no perfil público;
+4. **URL privada não deve ser exposta indevidamente** — `repositorioUrl`/`figmaUrl`/`discordUrl`/`documentacaoUrl` são ocultadas para quem não é membro de projeto privado;
+5. **tokens nunca vão para o frontend** — token de acesso GitHub, `github_installation_id` e demais segredos são exclusivos do servidor;
+6. **logs não devem conter secrets** — nenhum log registra tokens, authorization headers ou dados sensíveis;
+7. **payloads devem ser minimizados** — cada resposta expõe apenas os campos necessários ao papel do usuário (membro/dono/visitante).
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa14.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Coluna | Tipo | Default | Semântica |
+|---|---|---|---|
+| `projetos.visibilidade` | `ENUM('publico','privado')` | `'publico'` | visibilidade do projeto: `'publico'` (padrão — comportamento atual) ou `'privado'` (só membros/dono veem detalhes técnicos e URLs) |
+| `projetos.permitir_portfolio_publico` | `BOOLEAN` | `TRUE` | autoriza o projeto a exibir contribuições detalhadas no portfólio público; `FALSE` restringe o portfólio a contagens agregadas mesmo em projeto público |
+
+Regra de composição (usada pelo portfólio e pelo serviço de privacidade): um projeto é tratado como **privado no portfólio** quando `visibilidade = 'privado'` **OU** `permitir_portfolio_publico = FALSE`.
+
+**Serviço interno `src/services/githubPrivacy.js` (sem rota — não é endpoint):**
+
+Centraliza as decisões de privacidade GitHub para que nenhum controller replique a regra manualmente:
+
+| Função | Propósito |
+|---|---|
+| `canViewRepositoryActivity(userId, projectId)` | decide se o usuário pode ver a **atividade do repositório** (branch automática, commits, PRs) do projeto — membros/dono podem; usuário fora do projeto **não**; visitante (sem token) nunca |
+| `canExposeContributionPublicly(projectId, contribution)` | decide se uma contribuição específica pode ser exibida **publicamente** (portfólio) — respeita `visibilidade`, `permitir_portfolio_publico` e a regra de não expor mensagem de commit/PR privada |
+
+O serviço é a **fonte de verdade única** das regras de privacidade: controllers e o portfólio consultam essas funções antes de montar a resposta (regra 7 — payload minimizado). Não possui rota/endpoint próprio.
+
+#### `GET /projetos/:id` (Requer Token) — novos campos `visibilidade` e `permitirPortfolioPublico`
+
+O detalhamento do projeto (seção 3) passa a incluir **`visibilidade`** e **`permitirPortfolioPublico`** (camelCase) em `dados`, além dos campos atuais (`vagas` — seção 21 —, members, tasks, messages, applications):
+
+```json
+{
+  "sucesso": true,
+  "message": "Detalhes do projeto carregados com sucesso",
+  "dados": {
+    "id": "10",
+    "name": "MonteSquad Web",
+    "description": "Plataforma para...",
+    "status": "Aberto",
+    "membersLimit": 6,
+    "visibilidade": "publico",
+    "permitirPortfolioPublico": true,
+    "repositorioUrl": "https://github.com/exemplo/montesquad",
+    "figmaUrl": "https://figma.com/exemplo",
+    "discordUrl": null,
+    "documentacaoUrl": null,
+    "members": [],
+    "tasks": [],
+    "messages": [],
+    "applications": [],
+    "vagas": []
+  }
+}
+```
+
+**Ocultação de URLs (regra 4):** quando o projeto tem `visibilidade = 'privado'` e o usuário autenticado **não é membro/dono**, os campos `repositorioUrl`, `figmaUrl`, `discordUrl` e `documentacaoUrl` são **omitidos da resposta** (não retornam valor). Membros e o dono continuam vendo as URLs normalmente.
+
+#### `PATCH /projetos/:id` (Somente dono do projeto) — campos de privacidade
+
+O dono atualiza a privacidade do projeto pelo endpoint de edição do projeto. **Somente o dono** (papel Owner) pode alterar esses campos — outro usuário recebe **403**.
+
+- **Request Body** (aceita os campos de privacidade da etapa; campos ausentes permanecem inalterados):
+  ```json
+  {
+    "visibilidade": "privado",
+    "permitir_portfolio_publico": false
+  }
+  ```
+- **Validação:**
+  - `visibilidade` deve ser `'publico'` ou `'privado'` — qualquer outro valor → **400**;
+  - `permitir_portfolio_publico` deve ser booleano (`true`/`false`) — outro tipo → **400**.
+- **Response (200 OK):** contrato de resposta padrão (`sucesso`, `message`, `dados` com o projeto atualizado — incluindo `visibilidade`/`permitirPortfolioPublico`).
+- **Erros:** 400 (valor de `visibilidade` inválido ou `permitir_portfolio_publico` não booleano), 403 (usuário não é dono do projeto), 404 (projeto inexistente).
+
+#### `GET /usuarios/:id/portfolio` (Público — sem token) — campo `privado` e contribuições ocultas
+
+O portfólio (seção 27) passa a respeitar a privacidade definida na ETAPA 14: cada item de `projetos[]` ganha o campo **`privado`** (booleano). Um projeto é `privado: true` quando `visibilidade = 'privado'` **OU** `permitir_portfolio_publico = FALSE`.
+
+- `privado: false` → comportamento atual (seção 27): contagens agregadas + `contribuicoes[]` detalhadas;
+- `privado: true` → **`contribuicoes` não é incluída** no item; permanecem apenas as **contagens agregadas** (`tasksVerificadas`, `commits`, `prsMergeados`), `tecnologias` e o campo `privado: true` — nenhuma evidência detalhada (título de task/PR, número e URL do PR, mensagem de commit) é exposta:
+
+```json
+{
+  "sucesso": true,
+  "message": "Portfólio do usuário",
+  "nItens": 2,
+  "dados": {
+    "projetos": [
+      {
+        "projetoId": 5,
+        "projetoNome": "Sistema Financeiro",
+        "funcao": "Backend",
+        "privado": false,
+        "tasksVerificadas": 4,
+        "commits": 32,
+        "prsMergeados": 4,
+        "tecnologias": ["Node.js", "MySQL"],
+        "contribuicoes": [
+          {
+            "tarefaId": 51,
+            "titulo": "API de autenticação",
+            "prNumero": 15,
+            "prUrl": "https://github.com/organizacao/sistema-financeiro/pull/15",
+            "commits": 8,
+            "mergeadoEm": "2026-08-01T14:30:00.000Z"
+          }
+        ]
+      },
+      {
+        "projetoId": 8,
+        "projetoNome": "Dashboard Interno",
+        "funcao": "Fullstack",
+        "privado": true,
+        "tasksVerificadas": 3,
+        "commits": 18,
+        "prsMergeados": 2,
+        "tecnologias": ["React", "Node.js"]
+      }
+    ]
+  }
+}
+```
+
+- **Erros:** 404 (usuário inexistente — `"Usuário não encontrado"`).
