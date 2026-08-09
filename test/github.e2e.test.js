@@ -50,6 +50,8 @@ function criarPool() {
         return [{ affectedRows: 1 }, []];
       } },
     { match: (sql) => /^select id, responsavel_id from tarefas where id = \? and projeto_id = \? limit 1$/.test(sql), resposta: () => [[{ id: 38, responsavel_id: 2 }], []] },
+    // ETAPA 9: histórico de responsáveis (acao='assumiu' após assumir)
+    { match: (sql) => /^insert into historico_responsaveis_tarefa \(tarefa_id, usuario_id, acao, realizado_por\) values \(\?, \?, \?, \?\)$/.test(sql), resposta: () => [{ insertId: 1, affectedRows: 1 }, []] },
     { match: (sql) => /^select github_repository_id from projetos where id = \? limit 1$/.test(sql), resposta: () => [[{ github_repository_id: 100 }], []] },
     { match: (sql) => /^select id, titulo from tarefas where id = \? limit 1$/.test(sql), resposta: () => [[{ id: 38, titulo: "Criar API" }], []] },
     { match: (sql) => /^update tarefas set github_branch = \? where id = \? and projeto_id = \?$/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
@@ -67,9 +69,9 @@ function criarPool() {
     { match: (sql) => /^insert into github_pull_requests/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
     // PR aberto → status 'review' (atualizarTaskPorPR)
     { match: (sql) => /^update tarefas set github_pr_id = \?, github_pr_number = \?, github_pr_url = \?, github_pr_status = \?, status = 'review'/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
-    { match: (sql) => /^select id, status, concluida_via, github_pr_id from tarefas/.test(sql), resposta: (params) => {
-        const t = estado.tasks.get(38) || { status: "review", concluida_via: null, github_pr_id: null };
-        return [[{ id: 38, status: t.status, concluida_via: t.concluida_via, github_pr_id: t.github_pr_id || null }], []];
+    { match: (sql) => /^select id, status, concluida_via, github_pr_id, responsavel_id from tarefas/.test(sql), resposta: (params) => {
+        const t = estado.tasks.get(38) || { status: "review", concluida_via: null, github_pr_id: null, responsavel_id: 2 };
+        return [[{ id: 38, status: t.status, concluida_via: t.concluida_via, github_pr_id: t.github_pr_id || null, responsavel_id: t.responsavel_id ?? 2 }], []];
       } },
     // PR merged → done (concluirTaskPorMerge)
     { match: (sql) => /^update tarefas set github_pr_id = \?, github_pr_number = \?, github_pr_url = \?, github_pr_status = 'merged'/.test(sql), resposta: (params) => {

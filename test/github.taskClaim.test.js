@@ -28,6 +28,11 @@ function criarPool({ afetadas = 1, comGitHub = true, jaTemResponsavel = false } 
       resposta: () => (jaTemResponsavel ? [[{ id: 1, responsavel_id: 2 }], []] : [[], []]),
     },
     {
+      // ETAPA 9: INSERT no histórico de responsáveis (acao='assumiu')
+      match: (sql) => /^insert into historico_responsaveis_tarefa \(tarefa_id, usuario_id, acao, realizado_por\) values \(\?, \?, \?, \?\)$/.test(sql),
+      resposta: () => [{ insertId: 1, affectedRows: 1 }, []],
+    },
+    {
       // SELECT github_repository_id do projeto
       match: (sql) => /^select github_repository_id from projetos where id = \? limit 1$/.test(sql),
       resposta: () => [[{ github_repository_id: comGitHub ? 100 : null }], []],

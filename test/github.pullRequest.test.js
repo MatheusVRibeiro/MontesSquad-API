@@ -40,7 +40,7 @@ function stubarBanco() {
           if (s.startsWith("update tarefas set github_last_activity_at")) {
             return queries.updateAtividade(params);
           }
-          if (s.includes("select id, status, concluida_via, github_pr_id from tarefas")) {
+          if (s.includes("select id, status, concluida_via, github_pr_id, responsavel_id from tarefas")) {
             return queries.selectTaskMerge(params);
           }
           if (s.includes("github_pr_status = 'merged'") && s.includes("concluida_via = 'github_merge'")) {

@@ -33,6 +33,19 @@ function validarHabilidades(habilidades) {
   return null;
 }
 
+// ETAPA 9: registra uma troca de responsável na tabela
+// historico_responsaveis_tarefa. `usuarioId` é o responsável envolvido na ação
+// e `realizadoPor` é quem executou (o próprio usuário em assumiu/abandonou; o
+// owner em removido/reatribuido). O histórico NUNCA é apagado — é a evidência
+// de contribuição exigida pelo critério de aceite da ETAPA 9.
+async function registrarHistoricoResponsavel({ tarefaId, usuarioId, acao, realizadoPor }) {
+  await db.query(
+    `INSERT INTO historico_responsaveis_tarefa (tarefa_id, usuario_id, acao, realizado_por)
+     VALUES (?, ?, ?, ?)`,
+    [tarefaId, usuarioId, acao, realizadoPor ?? null]
+  );
+}
+
 module.exports = {
   async listarTarefas(request, response, next) {
     try {
@@ -297,6 +310,18 @@ module.exports = {
               usuarioId: linha.responsavel_id,
               tarefaId: Number(tarefaId),
             });
+            // ETAPA 9 — registrar conclusão manual no histórico de responsáveis
+            // (best-effort: falha não derruba a atualização da tarefa).
+            try {
+              await registrarHistoricoResponsavel({
+                tarefaId: Number(tarefaId),
+                usuarioId: linha.responsavel_id,
+                acao: "concluiu",
+                realizadoPor: linha.responsavel_id,
+              });
+            } catch (historicoError) {
+              // histórico não deve derrubar a conclusão
+            }
           }
         } catch (e) {
           // XP não deve derrubar a atualização da tarefa
@@ -415,6 +440,14 @@ module.exports = {
         });
       }
 
+      // ETAPA 9: registra a assunção no histórico (evidência de contribuição).
+      await registrarHistoricoResponsavel({
+        tarefaId,
+        usuarioId: usuarioLogadoId,
+        acao: "assumiu",
+        realizadoPor: usuarioLogadoId,
+      });
+
       // Gera branch se o projeto estiver conectado ao GitHub
       const [projRows] = await db.query(
         "SELECT github_repository_id FROM projetos WHERE id = ? LIMIT 1",
@@ -451,6 +484,231 @@ module.exports = {
       });
     } catch (error) {
       return next(new AppError("Erro ao assumir tarefa", 500, error));
+    }
+  },
+
+  /**
+   * POST /projetos/:projetoId/tarefas/:tarefaId/abandonar — apenas o responsável
+   * ATUAL abandona a task (ETAPA 9). responsavel_id -> NULL, status volta para
+   * 'todo'; commits já registrados e o histórico permanecem.
+   */
+  async abandonarTarefa(request, response, next) {
+    try {
+      const { projetoId, tarefaId } = request.params;
+      const usuarioLogadoId = request.usuarioAutenticado.id;
+
+      const [rows] = await db.query(
+        "SELECT id, responsavel_id, status FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+        [tarefaId, projetoId]
+      );
+      if (rows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Tarefa não encontrada",
+          dados: null,
+        });
+      }
+
+      const tarefa = rows[0];
+      if (!tarefa.responsavel_id) {
+        return response.status(409).json({
+          sucesso: false,
+          message: "Tarefa não possui responsável",
+          dados: null,
+        });
+      }
+
+      if (Number(tarefa.responsavel_id) !== Number(usuarioLogadoId)) {
+        return response.status(403).json({
+          sucesso: false,
+          message: "Apenas o responsável atual pode abandonar a tarefa",
+          dados: null,
+        });
+      }
+
+      await db.query(
+        "UPDATE tarefas SET responsavel_id = NULL, status = 'todo' WHERE id = ? AND projeto_id = ? AND responsavel_id = ?",
+        [tarefaId, projetoId, usuarioLogadoId]
+      );
+
+      // ETAPA 9: histórico — quem abandonou também é o realizado_por.
+      await registrarHistoricoResponsavel({
+        tarefaId,
+        usuarioId: usuarioLogadoId,
+        acao: "abandonou",
+        realizadoPor: usuarioLogadoId,
+      });
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Tarefa abandonada com sucesso",
+        dados: { id: tarefa.id, status: "todo", responsavel_id: null },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao abandonar tarefa", 500, error));
+    }
+  },
+
+  /**
+   * POST /projetos/:projetoId/tarefas/:tarefaId/remover-responsavel — somente
+   * owner remove o responsável (ETAPA 9). responsavel_id -> NULL e o histórico
+   * registra acao='removido' com realizado_por = owner.
+   */
+  async removerResponsavelTarefa(request, response, next) {
+    try {
+      const { projetoId, tarefaId } = request.params;
+      const ownerId = request.usuarioAutenticado.id;
+
+      const [rows] = await db.query(
+        "SELECT id, responsavel_id, status FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+        [tarefaId, projetoId]
+      );
+      if (rows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Tarefa não encontrada",
+          dados: null,
+        });
+      }
+
+      const tarefa = rows[0];
+      if (!tarefa.responsavel_id) {
+        return response.status(409).json({
+          sucesso: false,
+          message: "Tarefa não possui responsável",
+          dados: null,
+        });
+      }
+
+      await db.query(
+        "UPDATE tarefas SET responsavel_id = NULL WHERE id = ? AND projeto_id = ? AND responsavel_id IS NOT NULL",
+        [tarefaId, projetoId]
+      );
+
+      // ETAPA 9: histórico — usuario_id é quem foi removido; realizado_por é o owner.
+      await registrarHistoricoResponsavel({
+        tarefaId,
+        usuarioId: tarefa.responsavel_id,
+        acao: "removido",
+        realizadoPor: ownerId,
+      });
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Responsável removido com sucesso",
+        dados: { id: tarefa.id, status: tarefa.status, responsavel_id: null },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao remover responsável da tarefa", 500, error));
+    }
+  },
+
+  /**
+   * POST /projetos/:projetoId/tarefas/:tarefaId/reatribuir — somente owner
+   * reatribui a task a outro membro ATIVO do projeto (ETAPA 9). O histórico
+   * registra acao='reatribuido' com realizado_por = owner.
+   */
+  async reatribuirTarefa(request, response, next) {
+    try {
+      const { projetoId, tarefaId } = request.params;
+      const ownerId = request.usuarioAutenticado.id;
+      const { usuario_id } = request.body;
+
+      if (
+        usuario_id === undefined ||
+        usuario_id === null ||
+        !Number.isInteger(Number(usuario_id)) ||
+        Number(usuario_id) <= 0
+      ) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "usuario_id (novo responsável) é obrigatório",
+          dados: null,
+        });
+      }
+      const novoResponsavelId = Number(usuario_id);
+
+      const [rows] = await db.query(
+        "SELECT id, responsavel_id FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+        [tarefaId, projetoId]
+      );
+      if (rows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Tarefa não encontrada",
+          dados: null,
+        });
+      }
+
+      // Novo responsável precisa ser membro ATIVO do projeto
+      const [membros] = await db.query(
+        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? AND status = 'ativo' LIMIT 1",
+        [projetoId, novoResponsavelId]
+      );
+      if (membros.length === 0) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Novo responsável deve ser membro ativo do projeto",
+          dados: null,
+        });
+      }
+
+      await db.query(
+        "UPDATE tarefas SET responsavel_id = ? WHERE id = ? AND projeto_id = ?",
+        [novoResponsavelId, tarefaId, projetoId]
+      );
+
+      // ETAPA 9: histórico — usuario_id é o novo responsável; realizado_por é o owner.
+      await registrarHistoricoResponsavel({
+        tarefaId,
+        usuarioId: novoResponsavelId,
+        acao: "reatribuido",
+        realizadoPor: ownerId,
+      });
+
+      const [taskRows] = await db.query(
+        "SELECT id, titulo, status, responsavel_id FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+        [tarefaId, projetoId]
+      );
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Tarefa reatribuída com sucesso",
+        dados: taskRows[0] || { id: tarefaId, responsavel_id: novoResponsavelId },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao reatribuir tarefa", 500, error));
+    }
+  },
+
+  /**
+   * GET /projetos/:projetoId/tarefas/:tarefaId/historico-responsaveis — membro/dono
+   * consulta o histórico de responsáveis da task (ETAPA 9), com nome do usuário
+   * (JOIN usuarios) e de quem realizou a ação.
+   */
+  async historicoResponsaveisTarefa(request, response, next) {
+    try {
+      const { tarefaId } = request.params;
+
+      const [rows] = await db.query(
+        `SELECT h.id, h.tarefa_id, h.usuario_id, h.acao, h.realizado_por, h.criado_em,
+                u.nome AS usuario_nome, r.nome AS realizado_por_nome
+         FROM historico_responsaveis_tarefa h
+         LEFT JOIN usuarios u ON u.id = h.usuario_id
+         LEFT JOIN usuarios r ON r.id = h.realizado_por
+         WHERE h.tarefa_id = ?
+         ORDER BY h.criado_em DESC, h.id DESC`,
+        [tarefaId]
+      );
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Histórico de responsáveis da tarefa",
+        nItens: rows.length,
+        dados: rows,
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao listar histórico de responsáveis", 500, error));
     }
   },
 };

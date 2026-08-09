@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS historico_responsaveis_tarefa;
 DROP TABLE IF EXISTS eventos_xp;
 DROP TABLE IF EXISTS github_webhook_deliveries;
 DROP TABLE IF EXISTS github_pull_requests;

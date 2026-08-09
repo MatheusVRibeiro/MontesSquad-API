@@ -106,7 +106,7 @@ async function atualizarTaskPorPR({ taskId, prId, prNumber, prUrl, status, conn 
 async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, conn }) {
   const executor = conn || db;
   const [rows] = await executor.query(
-    `SELECT id, status, concluida_via, github_pr_id
+    `SELECT id, status, concluida_via, github_pr_id, responsavel_id
      FROM tarefas WHERE id = ? LIMIT 1`,
     [taskId]
   );
@@ -127,6 +127,20 @@ async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, c
      WHERE id = ?`,
     [prId, prNumber, prUrl, mergedAt || new Date(), taskId]
   );
+
+  // ETAPA 9 — registrar conclusão no histórico de responsáveis (best-effort:
+  // se a tabela ainda não existir em ambiente intermediário, não derruba o merge).
+  if (task.responsavel_id) {
+    try {
+      await executor.query(
+        `INSERT INTO historico_responsaveis_tarefa (tarefa_id, usuario_id, acao)
+         VALUES (?, ?, 'concluiu')`,
+        [taskId, task.responsavel_id]
+      );
+    } catch (historicoError) {
+      // histórico não deve derrubar o processamento do merge
+    }
+  }
 
   return { concluida: true };
 }

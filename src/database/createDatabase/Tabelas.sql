@@ -288,6 +288,19 @@ CREATE TABLE subtarefas (
     FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- 12b. Histórico de Responsáveis da Tarefa (Evolução ETAPA 9 — abandonar/remover/reatribuir)
+CREATE TABLE historico_responsaveis_tarefa (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tarefa_id INT NOT NULL,
+    usuario_id INT NOT NULL,
+    acao ENUM('assumiu', 'abandonou', 'removido', 'reatribuido', 'concluiu') NOT NULL,
+    realizado_por INT NULL,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (realizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- 13. Conquistas (Achievements)
 CREATE TABLE conquistas (
     id INT AUTO_INCREMENT PRIMARY KEY,

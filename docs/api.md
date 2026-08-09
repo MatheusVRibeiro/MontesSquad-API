@@ -980,3 +980,79 @@ Lista as tarefas do projeto. Cada item da resposta agora inclui `dificuldade` e 
   }
   ```
 - **Erros:** 403 (não é membro/dono), 404 (projeto inexistente).
+
+---
+
+### 25. Evolução ETAPA 9 — Abandonar, remover responsável e reatribuir task
+
+A ETAPA 9 permite **trocar o responsável de uma tarefa sem perder evidência de contribuição anterior**. O responsável atual pode **abandonar** a tarefa, o owner pode **remover o responsável** ou **reatribuir** a tarefa a outro membro ativo — e toda troca fica registrada na nova tabela **`historico_responsaveis_tarefa`**. Commits já registrados, a timeline e o histórico permanecem intactos.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa9.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Tabela **`historico_responsaveis_tarefa`** | Histórico de responsáveis de cada tarefa — `id BIGINT AUTO_INCREMENT PRIMARY KEY`, `tarefa_id INT NOT NULL`, `usuario_id INT NOT NULL` (responsável da ação), `acao ENUM('assumiu','abandonou','removido','reatribuido','concluiu') NOT NULL`, `realizado_por INT NULL` (quem executou a ação), `criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP`. |
+| FK `tarefa_id` | → `tarefas(id)` `ON DELETE CASCADE` — remover a tarefa apaga o histórico de responsáveis. |
+| FK `usuario_id` | → `usuarios(id)` `ON DELETE CASCADE` — remover o usuário apaga seus registros de histórico. |
+| FK `realizado_por` | → `usuarios(id)` `ON DELETE SET NULL` — remover o usuário que executou a ação preserva o registro (`realizado_por` volta a `NULL`). |
+
+**Significado do ENUM `acao`:**
+
+| Valor | Quando é registrado |
+|---|---|
+| `assumiu` | membro assume a tarefa (endpoint `POST /assumir` da seção 15). |
+| `abandonou` | responsável atual abandona a tarefa (`POST /abandonar`). |
+| `removido` | owner remove o responsável da tarefa (`POST /remover-responsavel`). |
+| `reatribuido` | owner reatribui a tarefa a outro membro (`POST /reatribuir`). |
+| `concluiu` | tarefa concluída. |
+
+**Regras de negócio:**
+- **abandonar** (`POST /abandonar`): apenas o **responsável atual** pode abandonar a tarefa — outro usuário recebe **403**; `responsavel_id` volta a `NULL` e o status retorna para `todo` (ou regra definida); commits já registrados e o histórico permanecem;
+- **remover responsável** (`POST /remover-responsavel`): somente o **owner**; `responsavel_id` volta a `NULL` e o registro grava quem removeu (`realizado_por` = owner, `acao = 'removido'`);
+- **reatribuir** (`POST /reatribuir`): somente o **owner**; o novo responsável deve ser **membro ativo** do projeto (`membros_equipe.status = 'ativo'`);
+- **nenhuma troca de responsável apaga evidência de contribuição anterior** (critério de aceite da ETAPA 9) — commits, timeline e histórico de responsáveis permanecem.
+
+#### `POST /projetos/:projetoId/tarefas/:tarefaId/abandonar` (Responsável atual)
+O responsável atual abandona a tarefa: `responsavel_id` volta a `NULL`, o status volta para `todo` e o evento é registrado com `acao = 'abandonou'` em `historico_responsaveis_tarefa`. Sem Request Body.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Tarefa abandonada", "dados": { "id": 51, "status": "todo", "responsavel_id": null } }`.
+- **Erros:** 400 (tarefa sem responsável), **403** (usuário autenticado não é o responsável atual), 404 (tarefa inexistente no projeto).
+
+#### `POST /projetos/:projetoId/tarefas/:tarefaId/remover-responsavel` (Somente owner)
+O owner remove o responsável da tarefa: `responsavel_id` volta a `NULL` e o evento é registrado com `acao = 'removido'` e `realizado_por` = id do owner. Sem Request Body.
+- **Response (200 OK):** `{ "sucesso": true, "message": "Responsável removido da tarefa", "dados": { "id": 51, "status": "todo", "responsavel_id": null } }`.
+- **Erros:** 400 (tarefa sem responsável), 403 (não é dono do projeto), 404 (tarefa inexistente no projeto).
+
+#### `POST /projetos/:projetoId/tarefas/:tarefaId/reatribuir` (Somente owner)
+O owner reatribui a tarefa a outro responsável. O evento é registrado com `acao = 'reatribuido'` e `realizado_por` = id do owner.
+- **Request Body:**
+  ```json
+  {
+    "usuario_id": 3
+  }
+  ```
+- **Response (200 OK):** `dados` com a tarefa atualizada, incluindo o novo `responsavel_id`.
+- **Erros:** 400 (`usuario_id` ausente ou **não é membro ativo** do projeto), 403 (não é dono do projeto), 404 (tarefa inexistente no projeto).
+
+#### `GET /projetos/:projetoId/tarefas/:tarefaId/historico-responsaveis` (Membro/dono)
+Lista o histórico de responsáveis da tarefa (mais recentes primeiro), com **nomes via JOIN** (`usuarios` para o responsável da ação e para quem a executou).
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Histórico de responsáveis carregado",
+    "nItens": 3,
+    "dados": [
+      {
+        "id": 12,
+        "tarefa_id": 51,
+        "usuario_id": 3,
+        "usuario_nome": "Maria Souza",
+        "acao": "reatribuido",
+        "realizado_por": 1,
+        "realizado_por_nome": "João Silva",
+        "criado_em": "2026-08-08T12:00:00.000Z"
+      }
+    ]
+  }
+  ```
+- **Erros:** 403 (usuário não é membro/dono do projeto), 404 (tarefa inexistente no projeto).

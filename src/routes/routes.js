@@ -144,6 +144,12 @@ router.patch("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteMe
 router.delete("/projetos/:projetoId/tarefas/:tarefaId", verificarToken, somenteDonoDoProjeto, tarefasController.apagarTarefa);
 // Membro/dono assume task livre (ETAPA 7)
 router.post("/projetos/:projetoId/tarefas/:tarefaId/assumir", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.assumirTarefa);
+// ETAPA 9: histórico de responsáveis — abandonar (responsável atual) e consultar
+// histórico (membro/dono); remover/reatribuir somente o owner
+router.post("/projetos/:projetoId/tarefas/:tarefaId/abandonar", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.abandonarTarefa);
+router.post("/projetos/:projetoId/tarefas/:tarefaId/remover-responsavel", verificarToken, somenteDonoDoProjeto, tarefasController.removerResponsavelTarefa);
+router.post("/projetos/:projetoId/tarefas/:tarefaId/reatribuir", verificarToken, somenteDonoDoProjeto, tarefasController.reatribuirTarefa);
+router.get("/projetos/:projetoId/tarefas/:tarefaId/historico-responsaveis", verificarToken, somenteMembroOuDonoDoProjeto, tarefasController.historicoResponsaveisTarefa);
 
 // ROTAS GITHUB (integração GitHub-Kanban)
 // Webhook público: autenticação por assinatura HMAC (NÃO usa verificarToken)
