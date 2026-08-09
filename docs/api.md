@@ -1514,3 +1514,60 @@ Lista os projetos recomendados para o usuário autenticado, ordenados por `score
 **Explicabilidade (critério de aceite):** o par `fatores` + `explicacao[]` torna o score auditável — `fatores` mostra o percentual de cada critério (a soma dos cinco fatores é o `score`) e `explicacao[]` traduz cada fator para uma frase em pt-BR. É isso que permite ao frontend mostrar o *porquê* da recomendação, e não apenas o número.
 
 **Frontend (squad-hub):** a seção **"Recomendados para você"** do dashboard consome `GET /matching/projetos` e exibe os projetos recomendados com o percentual de compatibilidade (`score`, ex.: "Compatibilidade: 92%") e as justificativas (`explicacao[]`).
+---
+### 32. Evolução ETAPA 17 — Matching Desenvolvedor ↔ Task
+
+A ETAPA 17 cria o **matching Desenvolvedor ↔ Task**: o endpoint `GET /projetos/:projetoId/tasks/recomendadas` recomenda tasks do projeto adequadas ao perfil do membro autenticado. Assim como o matching de projetos (seção 31), o score é **100% determinístico** (fórmula fixa, sem IA) e **explicável** — cada recomendação retorna `compatibilidade` (0–100) e uma lista `motivos[]` com frases em pt-BR que justificaram o score (critério de aceite da etapa: *"Recomendação é transparente e não impede escolha manual"*). A recomendação considera as **habilidades** do usuário × as habilidades da task (`habilidades_tarefa`), a **dificuldade** da tarefa, a **função** do membro no projeto, a **disponibilidade** do usuário e o fato de a task estar **sem responsável**.
+
+**Critérios considerados pelo matching:**
+
+| Critério | O que avalia | Fonte dos dados |
+|---|---|---|
+| **Habilidades** | Interseção entre as habilidades do usuário (`habilidades_usuario`, seção 20) e as habilidades exigidas pela task (`habilidades_tarefa`, seção 24). | `habilidades_usuario` × `habilidades_tarefa` |
+| **Dificuldade** | Compatibilidade entre a dificuldade da task (`tarefas.dificuldade` — `iniciante`/`intermediaria`/`avancada`, seção 24) e o nível do usuário. | `tarefas.dificuldade` |
+| **Função no projeto** | A função real do membro no squad (`membros_equipe.funcao_id`, seção 23) é compatível com o tipo da task. | `membros_equipe.funcao_id` |
+| **Disponibilidade** | Compatibilidade entre a disponibilidade semanal do usuário (`usuarios.disponibilidade_horas_semana`, seção 20) e a carga estimada da task. | `usuarios.disponibilidade_horas_semana` |
+| **Sem responsável** | A task está **livre para assumir** — `responsavel_id IS NULL` — e **não excluída** (`excluida_em IS NULL`, soft-delete da seção 26). | `tarefas.responsavel_id`, `tarefas.excluida_em` |
+
+O `compatibilidade` final é um inteiro **0–100** (percentual de adequação), calculado deterministicamente. **Não há mudança de banco nesta etapa** — o algoritmo reutiliza tabelas existentes (`habilidades_usuario`, `habilidades_tarefa`, `tarefas`, `membros_equipe`, `usuarios`), sem migração nem coluna nova.
+
+**Regras de negócio:**
+- **autenticação:** o endpoint exige token (`verificarToken`) **e** vínculo com o projeto (`somenteMembroOuDonoDoProjeto`) — sem token, **401**; usuário não membro/dono, **403**; projeto inexistente, **404**;
+- **escopo:** recomenda apenas tasks **do próprio projeto**, **sem responsável** (`responsavel_id IS NULL`) e **não excluídas** (`excluida_em IS NULL` — soft-delete da ETAPA 10, seção 26);
+- **score explicável (critério de aceite):** cada recomendação traz `motivos[]` em pt-BR justificando a compatibilidade — o consumidor nunca recebe um score "caixa-preta";
+- **ordenação:** recomendações ordenadas por `compatibilidade` decrescente (mais adequadas primeiro);
+- **limite:** no máximo **10** recomendações por chamada;
+- **matching é RECOMENDAÇÃO, não AUTORIZAÇÃO (regra da etapa):** score baixo **não bloqueia** o membro de assumir a task manualmente — o fluxo de assumir (seção 15) continua disponível para qualquer task sem responsável, independentemente do score de matching.
+
+#### `GET /projetos/:projetoId/tasks/recomendadas` (Membro/dono)
+Lista as tasks do projeto recomendadas para o usuário autenticado, ordenadas por `compatibilidade` decrescente (máx. 10). Cada recomendação traz `taskId`, `titulo`, `compatibilidade` (0–100) e `motivos[]` em pt-BR. Sem Request Body.
+
+- **Response (200 OK):**
+
+```json
+{
+  "sucesso": true,
+  "message": "Tasks recomendadas",
+  "nItens": 1,
+  "dados": {
+    "recomendacoes": [
+      {
+        "taskId": 38,
+        "titulo": "Criar API de Login",
+        "compatibilidade": 95,
+        "motivos": [
+          "Node.js compatível",
+          "SQL compatível",
+          "JWT é oportunidade de aprendizado"
+        ]
+      }
+    ]
+  }
+}
+```
+
+- **Erros:** 401 (token ausente/inválido — `verificarToken`), 403 (usuário não é membro/dono do projeto), 404 (projeto inexistente).
+
+**Transparência (critério de aceite):** `motivos[]` torna o score auditável — cada frase em pt-BR traduz um critério atendido (ou a oportunidade de aprendizado, quando a task exige habilidade fora do perfil atual). É isso que permite ao frontend mostrar o *porquê* da recomendação, e não apenas o número — e, como o matching **não autoriza nem bloqueia**, o membro continua podendo assumir qualquer task livre manualmente (seção 15).
+
+**Frontend (squad-hub):** a aba **"Recomendadas"** na página do projeto consome `GET /projetos/:projetoId/tasks/recomendadas` e exibe as tasks recomendadas para o membro com o percentual de compatibilidade (ex.: "Compatibilidade: 95%") e as justificativas (`motivos[]`). A aba é apenas um atalho de curadoria — o botão de assumir continua disponível para todas as tasks livres.

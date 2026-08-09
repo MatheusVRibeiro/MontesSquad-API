@@ -33,6 +33,7 @@ const reputacaoController = require("../controllers/reputacao");
 const portfolioController = require("../controllers/portfolio");
 const eventosProjetoController = require("../controllers/eventosProjeto");
 const matchingController = require("../controllers/matching");
+const taskMatchingController = require("../controllers/taskMatching");
 
 const {
   verificarToken,
@@ -147,6 +148,16 @@ router.delete("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoD
 // Recomenda projetos compatíveis com o perfil do usuário autenticado
 // (score determinístico 40/25/15/10/10 — src/services/matching.js)
 router.get("/matching/projetos", verificarToken, matchingController.recomendarProjetos);
+
+// ROTAS MATCHING DESENVOLVEDOR ↔ TASK (ETAPA 17)
+// Recomenda tasks do projeto adequadas ao membro autenticado (score
+// determinístico 40/25/15/10/10 — src/services/taskMatching.js). A rota usa
+// somenteMembroOuDonoDoProjeto (o dono também pode ver) e o SERVICE valida o
+// vínculo ATIVO do usuário: dono sem vínculo ativo recebe recomendação
+// (dono gerencia), vínculo antigo ('saiu'/'removido') → 403. Matching é
+// RECOMENDAÇÃO, não autorização (spec §20): score baixo nunca bloqueia a
+// escolha manual via /assumir.
+router.get("/projetos/:projetoId/tasks/recomendadas", verificarToken, somenteMembroOuDonoDoProjeto, taskMatchingController.recomendarTasks);
 
 // ROTAS KANBAN TAREFAS
 // Somente dono ou membros do squad podem ver tarefas
