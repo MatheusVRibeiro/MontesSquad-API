@@ -1148,3 +1148,68 @@ Portfólio público e verificável do usuário: agrega por projeto a participaç
   }
   ```
 - **Erros:** 404 (usuário inexistente — `"Usuário não encontrado"`).
+
+---
+
+### 28. Evolução ETAPA 12 — Reputação técnica separada do XP
+
+A ETAPA 12 separa **gamificação de qualidade técnica**: o **XP** continua representando **atividade/engajamento** (concluir task, participar, colaborar, receber avaliação — acumulado em `estatisticas_usuario`/`eventos_xp`, seções 14/18), enquanto a **reputação técnica** passa a representar **evidência de entrega e confiança** (tasks verificadas por merge, PRs mergeados, commits válidos, projetos com entrega), gravada na nova tabela **`reputacao_tecnica_usuario`**. Subir XP **não altera automaticamente** a reputação técnica (critério de aceite da ETAPA 12): são métricas independentes.
+
+**Novidades no banco** (migração aditiva e idempotente `scripts/migrar_evolucao_etapa12.js` + sync em `Tabelas.sql`/`Insert.sql`):
+
+| Aspecto | Detalhe |
+|---|---|
+| Tabela **`reputacao_tecnica_usuario`** | 1 linha por usuário — `usuario_id INT PRIMARY KEY`, `score DECIMAL(10,2) DEFAULT 0` (reputação técnica atual), `tasks_verificadas INT DEFAULT 0`, `prs_mergeados INT DEFAULT 0`, `commits_validos INT DEFAULT 0`, `projetos_com_entrega INT DEFAULT 0` e `atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` (último recálculo). |
+| FK `usuario_id` | → `usuarios(id)` `ON DELETE CASCADE` — remover o usuário apaga sua linha de reputação técnica. |
+
+**XP vs Reputação técnica (conceito):**
+
+| Aspecto | XP — engajamento | Reputação técnica — evidência de entrega |
+|---|---|---|
+| Onde vive | `estatisticas_usuario` + `eventos_xp` (seções 14/18) | `reputacao_tecnica_usuario` |
+| O que mede | atividade/participação: concluir task, participar, colaborar, receber avaliação | entrega verificada: tasks verificadas por merge, PRs mergeados, commits válidos, projetos com entrega |
+| Como é atualizado | eventos de XP (ex.: **+150 XP** por merge GitHub — seção 18) | recalculo do score no backend, a partir do banco |
+| Independência | subir XP **não** altera reputação técnica (critério de aceite ETAPA 12) | — |
+
+**Fórmula do score (pesos):** o score é calculado **somente no backend**, derivado de dados do banco — **nunca** confiando em valores vindos do frontend. O serviço `src/services/reputacaoTecnica.js` expõe `recalcularReputacao(usuarioId)`, que lê as evidências do usuário e grava (ou atualiza) a linha em `reputacao_tecnica_usuario`. O score é a soma ponderada das evidências:
+
+```text
+score = (commits_validos      × P_commit)
+      + (prs_mergeados        × P_pr)
+      + (tasks_verificadas    × P_task)
+      + (projetos_com_entrega × P_projeto)
+```
+
+Pesos por evidência (escala de pontos por evidência documentada no PLANO — exemplo ETAPA 13; definidos como constantes em código):
+
+| Fator | Peso | Semântica |
+|---|---|---|
+| `tasks_verificadas` | +50 | task concluída por merge GitHub (`concluida_via = 'github_merge'` — seção 15) |
+| `prs_mergeados` | +30 | PR com `estado = 'merged'` vinculado a task do usuário (seções 12/17) |
+| `commits_validos` | +1 | commit registrado pelo webhook e vinculado a task MontesSquad (seções 12/18) |
+| `projetos_com_entrega` | +20 | projeto com ao menos uma entrega verificada do usuário |
+
+**Nota:** os pesos são **constantes definidas em código** em `src/services/reputacaoTecnica.js` — a tabela segue a escala documentada no PLANO e serve de referência; o backend é a fonte de verdade final do score.
+
+**Quando o score é recalculado** (sempre no backend, a partir do banco):
+- **merge de PR GitHub** — o webhook `pull_request` com `closed` (merged) conclui a task (seção 18) e dispara o recalculo da reputação do responsável;
+- **conclusão manual de task** — ao concluir a tarefa manualmente, o sistema recalcula a reputação do responsável;
+- o recálculo é **idempotente**: deriva tudo do banco e pode ser reexecutado sem efeitos colaterais (o `score` é re-derivado, nunca incrementado).
+
+#### `GET /usuarios/:id/reputacao-tecnica` (Público — sem token)
+Retorna a reputação técnica do usuário: o `score` atual e as evidências que o compõem. **Público** — não exige token (mesmo padrão do portfólio da ETAPA 11, seção 27): qualquer visitante consulta a reputação técnica sem login. Complementa o `GET /usuarios/:id/reputacao` (seção 8), que segue retornando XP/nível/avaliações (engajamento) e continua exigindo token.
+- **Response (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Reputação técnica obtida",
+    "dados": {
+      "score": 165.0,
+      "tasks_verificadas": 2,
+      "prs_mergeados": 1,
+      "commits_validos": 15,
+      "projetos_com_entrega": 1
+    }
+  }
+  ```
+- **Erros:** 404 (usuário inexistente).

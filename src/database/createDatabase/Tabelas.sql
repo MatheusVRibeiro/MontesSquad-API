@@ -332,3 +332,18 @@ CREATE TABLE notificacoes (
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- 16. Reputação Técnica do Usuário (Evolução ETAPA 12 — separada do XP)
+-- Score calculado SEMPRE pelo backend (src/services/reputacaoTecnica.js), nunca
+-- pelo frontend. Fórmula: score = tasks_verificadas*50 + prs_mergeados*30 +
+-- commits_validos*1 + projetos_com_entrega*20.
+CREATE TABLE reputacao_tecnica_usuario (
+    usuario_id INT PRIMARY KEY,
+    score DECIMAL(10,2) DEFAULT 0,
+    tasks_verificadas INT DEFAULT 0,
+    prs_mergeados INT DEFAULT 0,
+    commits_validos INT DEFAULT 0,
+    projetos_com_entrega INT DEFAULT 0,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

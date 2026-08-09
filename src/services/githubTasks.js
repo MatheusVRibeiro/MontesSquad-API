@@ -40,15 +40,17 @@ async function encontrarTaskPorBranch({ repositoryId, branch }) {
 /**
  * Registra um commit (INSERT IGNORE na unique key repository_id + sha).
  * Schema real: tarefa_id/projeto_id NOT NULL + message + author_login/name/email + commit_url + committed_at.
+ * ETAPA 12: passa a gravar author_github_id (autor GitHub do payload) — sem ele,
+ * commits_validos da reputação técnica (e rankings) ficariam sempre zerados.
  * Retorna true se inseriu, false se já existia.
  */
-async function salvarCommit({ tarefaId, projetoId, repositoryId, sha, mensagem, autor, login, email, url, horario, branch, conn }) {
+async function salvarCommit({ tarefaId, projetoId, repositoryId, sha, mensagem, autor, login, email, url, horario, branch, authorGithubId, conn }) {
   const executor = conn || db;
   const [result] = await executor.query(
     `INSERT IGNORE INTO github_commits
-      (tarefa_id, projeto_id, repository_id, sha, message, author_login, author_name, author_email, branch, commit_url, committed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [tarefaId, projetoId, repositoryId, sha, mensagem, login || null, autor || null, email || null, branch || null, url || null, horario || null]
+      (tarefa_id, projeto_id, repository_id, sha, message, author_github_id, author_login, author_name, author_email, branch, commit_url, committed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tarefaId, projetoId, repositoryId, sha, mensagem, authorGithubId || null, login || null, autor || null, email || null, branch || null, url || null, horario || null]
   );
   return result.affectedRows > 0;
 }
@@ -127,6 +129,20 @@ async function concluirTaskPorMerge({ taskId, prId, prNumber, prUrl, mergedAt, c
      WHERE id = ?`,
     [prId, prNumber, prUrl, mergedAt || new Date(), taskId]
   );
+
+  // ETAPA 12 — reputação técnica depende de github_pull_requests.estado='merged'.
+  // O webhook nunca gravava esse estado; marca agora (best-effort: linha/PR
+  // ausente não deve derrubar a conclusão da task).
+  try {
+    await executor.query(
+      `UPDATE github_pull_requests
+       SET estado = 'merged', mergeado_em = COALESCE(?, mergeado_em)
+       WHERE tarefa_id = ? AND numero = ?`,
+      [mergedAt || null, taskId, prNumber]
+    );
+  } catch (prError) {
+    // PR não registrado não deve derrubar o processamento do merge
+  }
 
   // ETAPA 9 — registrar conclusão no histórico de responsáveis (best-effort:
   // se a tabela ainda não existir em ambiente intermediário, não derruba o merge).

@@ -3,6 +3,7 @@
 const githubTasks = require("./githubTasks");
 const { criarNotificacao } = require("../controllers/notificacoes");
 const xpService = require("./xp");
+const reputacaoTecnica = require("./reputacaoTecnica");
 const db = require("../database/connection");
 
 /**
@@ -43,6 +44,9 @@ async function processarPush(payload, context = {}) {
       url: c.url || null,
       horario: c.timestamp || c.author?.date || null,
       branch,
+      // ETAPA 12: id do autor GitHub (usuarios.github_user_id) — base dos
+      // commits_validos da reputação técnica
+      authorGithubId: c.author?.id || c.committer?.id || null,
     });
     if (inserido) salvos += 1;
   }
@@ -152,6 +156,16 @@ async function processarPullRequest(payload, context = {}) {
         } catch (e) {
           // XP não deve derrubar o processamento do merge
           console.error("[githubEvents] Falha ao conceder XP por merge:", e.message);
+        }
+
+        // ETAPA 12 — reputação técnica SEPARADA do XP: recalcula do banco quando
+        // a task foi concluída por merge (best-effort: não derruba o merge).
+        if (task.responsavel_id) {
+          try {
+            await reputacaoTecnica.recalcularReputacao(task.responsavel_id);
+          } catch (e) {
+            console.error("[githubEvents] Falha ao recalcular reputação técnica:", e.message);
+          }
         }
       }
       return {

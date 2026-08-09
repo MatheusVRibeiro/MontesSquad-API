@@ -145,3 +145,9 @@ INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUE
 (3, 'approved', 'Candidatura aprovada', 'Sua candidatura foi aprovada no projeto API de Gestão de Frota', '/projetos/1', false),
 (4, 'task', 'Nova tarefa atribuída', 'Você recebeu uma nova tarefa no projeto App de Delivery Local', '/projetos/3', false),
 (1, 'message', 'Nova mensagem no projeto', 'Roberto Almeida: O banco de dados já está modelado?', '/projetos/1', false);
+
+-- 16. Reputação Técnica (Evolução ETAPA 12 — score calculado pelo backend;
+-- seed apenas ilustrativo para o ambiente de demonstração)
+INSERT INTO reputacao_tecnica_usuario (usuario_id, score, tasks_verificadas, prs_mergeados, commits_validos, projetos_com_entrega) VALUES
+(1, 105.00, 1, 1, 5, 1),
+(2, 50.00, 1, 0, 0, 1);

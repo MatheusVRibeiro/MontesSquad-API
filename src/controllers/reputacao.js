@@ -138,4 +138,63 @@ module.exports = {
       return next(new AppError("Erro ao obter reputação", 500, error));
     }
   },
+
+  /**
+   * GET /usuarios/:id/reputacao-tecnica (ETAPA 12 — reputação técnica separada do XP).
+   * Lê a tabela reputacao_tecnica_usuario (score calculado SEMPRE pelo backend —
+   * src/services/reputacaoTecnica.js), nunca de valores enviados pelo cliente.
+   * Suporta o alias 'me' (usuário autenticado).
+   */
+  async obterReputacaoTecnica(request, response, next) {
+    try {
+      let usuarioId = request.params.id;
+
+      if (usuarioId === "me") {
+        usuarioId = request.usuarioAutenticado
+          ? request.usuarioAutenticado.id
+          : null;
+      } else {
+        usuarioId = Number(usuarioId);
+      }
+
+      if (!usuarioId || Number.isNaN(usuarioId)) {
+        return next(new AppError("Usuário não encontrado", 404));
+      }
+
+      // 1. Verifica se o usuário existe
+      const [usuarios] = await db.query(
+        "SELECT id FROM usuarios WHERE id = ? LIMIT 1",
+        [usuarioId]
+      );
+      if (usuarios.length === 0) {
+        return next(new AppError("Usuário não encontrado", 404));
+      }
+
+      // 2. Linha de reputação técnica (defaults caso ainda não tenha sido recalculada)
+      const [rows] = await db.query(
+        `SELECT score, tasks_verificadas, prs_mergeados, commits_validos, projetos_com_entrega, atualizado_em
+         FROM reputacao_tecnica_usuario
+         WHERE usuario_id = ?
+         LIMIT 1`,
+        [usuarioId]
+      );
+
+      const r = rows[0] || {};
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Reputação técnica obtida",
+        dados: {
+          score: Number(r.score) || 0,
+          tasks_verificadas: r.tasks_verificadas ?? 0,
+          prs_mergeados: r.prs_mergeados ?? 0,
+          commits_validos: r.commits_validos ?? 0,
+          projetos_com_entrega: r.projetos_com_entrega ?? 0,
+          atualizado_em: r.atualizado_em ?? null,
+        },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao obter reputação técnica", 500, error));
+    }
+  },
 };

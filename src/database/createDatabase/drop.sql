@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS eventos_xp;
 DROP TABLE IF EXISTS github_webhook_deliveries;
 DROP TABLE IF EXISTS github_pull_requests;
 DROP TABLE IF EXISTS github_commits;
+DROP TABLE IF EXISTS reputacao_tecnica_usuario;
 DROP TABLE IF EXISTS notificacoes;
 DROP TABLE IF EXISTS subtarefas;
 DROP TABLE IF EXISTS habilidades_tarefa;

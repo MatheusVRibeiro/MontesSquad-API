@@ -313,6 +313,16 @@ module.exports = {
               usuarioId: linha.responsavel_id,
               tarefaId: Number(tarefaId),
             });
+            // ETAPA 12 — reputação técnica SEPARADA do XP: recalcula do banco ao
+            // lado do XP (best-effort: falha não derruba a conclusão). Conclusão
+            // manual não soma tasks_verificadas (só github_merge conta), mas o
+            // recálculo mantém a tabela coerente com o restante das evidências.
+            try {
+              const reputacaoTecnica = require("../services/reputacaoTecnica");
+              await reputacaoTecnica.recalcularReputacao(linha.responsavel_id);
+            } catch (repError) {
+              console.error("[tarefas] Falha ao recalcular reputação técnica:", repError.message);
+            }
             // ETAPA 9 — registrar conclusão manual no histórico de responsáveis
             // (best-effort: falha não derruba a atualização da tarefa).
             try {

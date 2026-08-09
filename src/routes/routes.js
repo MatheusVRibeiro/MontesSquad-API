@@ -74,6 +74,8 @@ router.post("/notificacoes/ler-tudo", verificarToken, notificacoesController.mar
 
 // ROTAS REPUTAÇÃO
 router.get("/usuarios/:id/reputacao", verificarToken, reputacaoController.obterReputacao);
+// ETAPA 12 — reputação técnica separada do XP (endpoint próprio, privado)
+router.get("/usuarios/:id/reputacao-tecnica", verificarToken, reputacaoController.obterReputacaoTecnica);
 
 // ROTAS PORTFÓLIO VERIFICÁVEL (ETAPA 11)
 // Público: perfil público mostra as evidências agregadas por projeto sem login
