@@ -34,7 +34,7 @@ function criarPool() {
   return criarPoolFake([
     // middlewares
     { match: (sql) => /^select criador_id from projetos where id = \? limit 1$/.test(sql), resposta: () => [[{ criador_id: 5 }], []] },
-    { match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql), resposta: (params) => (params[1] === 99 ? [[], []] : [[{ id: 1 }], []]) },
+    { match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql), resposta: (params) => (params[1] === 99 ? [[], []] : [[{ id: 1 }], []]) },
     // webhook delivery
     { match: (sql) => /^insert ignore into github_webhook_deliveries/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
     { match: (sql) => /^select processado from github_webhook_deliveries where delivery_id = \? limit 1$/.test(sql), resposta: (params) => (estado.xp.length > 0 && params[0] === "dup-38" ? [[{ processado: true }], []] : [[], []]) },

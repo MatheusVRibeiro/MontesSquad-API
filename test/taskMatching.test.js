@@ -190,7 +190,7 @@ describe("ETAPA 17 — PESOS_TASK_MATCHING e calcularCompatibilidadeTask (unit)"
 // Queries REAIS do service (normalizadas — conferir src/services/taskMatching.js):
 const SQL_PROJETO = /^select criador_id from projetos where id = \? limit 1$/;
 const SQL_MEMBRO_ATIVO = /^select me\.funcao_id, me\.funcao as funcao_legada, f\.nome as funcao_nome from membros_equipe me left join funcoes f on f\.id = me\.funcao_id where me\.projeto_id = \? and me\.usuario_id = \? and me\.status = 'ativo' limit 1$/;
-const SQL_MEMBRO_MIDDLEWARE = /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/;
+const SQL_MEMBRO_MIDDLEWARE = /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/;
 const SQL_HABILIDADES_USUARIO = /^select hu\.habilidade_id, h\.nome, hu\.nivel from habilidades_usuario hu inner join habilidades h on h\.id = hu\.habilidade_id where hu\.usuario_id = \?$/;
 const SQL_USUARIO = /^select id, disponibilidade_horas_semana from usuarios where id = \? limit 1$/;
 const SQL_TAREFAS = /^select t\.id, t\.titulo, t\.descricao, t\.status, t\.dificuldade, t\.responsavel_id, t\.excluida_em from tarefas t where t\.projeto_id = \? and t\.responsavel_id is null and t\.excluida_em is null and t\.status not in \('done'\) order by t\.id$/;

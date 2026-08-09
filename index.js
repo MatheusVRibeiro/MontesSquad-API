@@ -21,6 +21,14 @@ const db = require('./src/database/connection');
 
 const app = express(); 
 
+// M2 (auditoria): confia no proxy reverso (nginx/Heroku/Render etc.) SOMENTE
+// quando explicitamente habilitado via TRUST_PROXY=1. Sem trust proxy, atrás
+// de um proxy TODOS os IPs viram o IP do proxy e o rate limit vira global
+// (DoS). Em execução local/direta NÃO deve ser habilitado — req.ip fica correto.
+if (process.env.TRUST_PROXY === "1") {
+  app.set("trust proxy", 1);
+}
+
 // 2. Configuração dinâmica de CORS para as origens reais do frontend
 // FRONTEND_URL aceita múltiplas origens separadas por vírgula (ex.:
 // "http://localhost:5173,http://localhost:5174"). As URLs são normalizadas
@@ -84,18 +92,24 @@ app.get('/health', async (request, response) => {
 });
 
 // 3. Middleware global de tratamento de erros
+// M3/M5 (auditoria): em NODE_ENV=production NUNCA ecoa err.message cru nem
+// detalhes internos (MySQL, stack, paths) — responde mensagem genérica e
+// dados:null; o detalhe vai apenas para o log do servidor (console.error).
+// Em dev/teste os detalhes são mantidos para facilitar o debug.
 app.use((err, req, res, next) => {
     const status = err.status || 500;
-    const message = err.message || 'Erro interno no servidor';
-    
+
     const originalErr = err.originalError || err;
     console.error('Erro capturado pelo Middleware Global:', originalErr);
-    
+
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
+    // Mensagem segura: genérica em produção; err.message apenas fora dela.
+    const message = isProduction ? 'Erro interno do servidor' : (err.message || 'Erro interno no servidor');
+
     // Evitar retornar detalhes internos do MySQL e error.message original em produção
     const dados = isProduction ? null : (originalErr.message || String(originalErr));
-    
+
     res.status(status).json({
         sucesso: false,
         message,

@@ -33,7 +33,10 @@ module.exports = {
   },
   async cadastrarHabilidadesUsuario(request, response, next) {
     try {
-      const { usuario_id, habilidade_id, nivel } = request.body;
+      const { habilidade_id, nivel } = request.body;
+      // A4 (IDOR): usuario_id vem SEMPRE do token — o usuário só gerencia as
+      // PRÓPRIAS habilidades (nunca aceitar usuario_id do body).
+      const usuario_id = request.usuarioAutenticado.id;
       
       const sql = `
         INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel)
@@ -61,7 +64,8 @@ module.exports = {
   },
   async editarHabilidadesUsuario(request, response, next) {
     try {
-      const usuario_id = request.body.usuario_id || request.query.usuario_id;
+      // A4 (IDOR): usuario_id vem SEMPRE do token (nunca do body/query).
+      const usuario_id = request.usuarioAutenticado.id;
       const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
       const nivel = request.body.nivel;
 
@@ -106,7 +110,8 @@ module.exports = {
   },
   async apagarHabilidadesUsuario(request, response, next) {
     try {
-      const usuario_id = request.body.usuario_id || request.query.usuario_id;
+      // A4 (IDOR): usuario_id vem SEMPRE do token (nunca do body/query).
+      const usuario_id = request.usuarioAutenticado.id;
       const habilidade_id = request.body.habilidade_id || request.query.habilidade_id;
 
       if (!usuario_id || !habilidade_id) {

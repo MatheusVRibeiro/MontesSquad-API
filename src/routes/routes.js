@@ -2,17 +2,47 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const router = express.Router();
 
-// Anti-brute-force / anti-spam nas rotas públicas sensíveis: máx. 10 requisições por IP a cada 15 minutos
-const limiterRotasPublicas = rateLimit({
+// Anti-brute-force / anti-spam nas rotas públicas sensíveis (M2 — auditoria de
+// segurança): bucket PRÓPRIO por rota para um atacante não esgotar o limite das
+// outras rotas (DoS de disponibilidade via bucket compartilhado).
+//  - Login: máx. 10 tentativas por IP a cada 15 minutos.
+//  - Cadastro e recuperar/resetar senha: máx. 5 por IP por hora.
+function criarLimiterPublico({ windowMs, limit, mensagem }) {
+  return rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: {
+      sucesso: false,
+      message: mensagem,
+      dados: null,
+    },
+  });
+}
+
+const limiterLogin = criarLimiterPublico({
   windowMs: 15 * 60 * 1000,
   limit: 10,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: {
-    sucesso: false,
-    message: "Muitas tentativas. Tente novamente em 15 minutos.",
-    dados: null,
-  },
+  mensagem: "Muitas tentativas. Tente novamente em 15 minutos.",
+});
+
+const limiterCadastro = criarLimiterPublico({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  mensagem: "Muitas tentativas. Tente novamente em 1 hora.",
+});
+
+const limiterRecuperarSenha = criarLimiterPublico({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  mensagem: "Muitas tentativas. Tente novamente em 1 hora.",
+});
+
+const limiterResetarSenha = criarLimiterPublico({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  mensagem: "Muitas tentativas. Tente novamente em 1 hora.",
 });
 
 const usuariosController = require("../controllers/usuarios");
@@ -43,19 +73,22 @@ const {
   somenteProprioOuAdm,
 } = require("../middlewares/auth");
 
-// ROTAS AUTENTICAÇÃO (Públicas) — com limite de tentativas
-router.post("/login", limiterRotasPublicas, autenticacaoController.login);
+// ROTAS AUTENTICAÇÃO (Públicas) — com limite de tentativas por rota (M2)
+router.post("/login", limiterLogin, autenticacaoController.login);
+
+// Logout — revoga o token atual (denylist tokens_revogados por jti) — A1
+router.post("/logout", verificarToken, autenticacaoController.logout);
 
 // ROTAS PÚBLICAS — GitHub Auth (Evolução ETAPA 1: cadastro/login com GitHub)
 router.get("/auth/github", githubAuthController.iniciarAuthGitHub);
 router.get("/auth/github/callback", githubAuthController.callbackAuthGitHub); // GitHub redireciona
 router.post("/auth/github/complete-profile", verificarToken, githubAuthController.completarPerfilGitHub);
-router.post("/recuperar-senha", limiterRotasPublicas, autenticacaoController.recuperarSenha);
-router.post("/resetar-senha", limiterRotasPublicas, autenticacaoController.resetarSenha);
+router.post("/recuperar-senha", limiterRecuperarSenha, autenticacaoController.recuperarSenha);
+router.post("/resetar-senha", limiterResetarSenha, autenticacaoController.resetarSenha);
 
 // ROTAS USUÁRIOS
 // Cadastro é aberto ao público, mas com limite de requisições por IP
-router.post("/usuarios", limiterRotasPublicas, usuariosController.cadastrarUsuario);
+router.post("/usuarios", limiterCadastro, usuariosController.cadastrarUsuario);
 
 // Apenas usuários logados podem listar e editar perfis. Apenas Adm ou o próprio usuário edita seu perfil.
 router.get("/usuarios", verificarToken, usuariosController.listarUsuarios);

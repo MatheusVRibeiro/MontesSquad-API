@@ -534,6 +534,15 @@ async function webhook(request, response, next) {
 
     // 2. validar assinatura
     const signature = request.headers["x-hub-signature-256"] || request.headers["x-hub-signature"];
+    // M4: sem assinatura → 401 (sem tocar no secret). Secret não configurado →
+    // 503 genérico SEM detalhe interno (antes: getWebhookSecret() lançava antes
+    // da checagem de assinatura e o erro interno vazava como 500).
+    if (!signature) {
+      return response.status(401).json({ sucesso: false, message: "Assinatura inválida" });
+    }
+    if (!webhookService.isWebhookConfigured()) {
+      return response.status(503).json({ sucesso: false, message: "Webhook não configurado" });
+    }
     if (!webhookService.verifyWebhookSignature(rawBody, signature)) {
       return response.status(401).json({ sucesso: false, message: "Assinatura inválida" });
     }

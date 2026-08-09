@@ -13,12 +13,19 @@ CREATE TABLE usuarios (
     github_connected_at DATETIME NULL,
     cadastro_origem ENUM('local','github') DEFAULT 'local' NOT NULL,
     senha_definida TINYINT(1) DEFAULT 0 NOT NULL,
+    token_versao INT NOT NULL DEFAULT 0,
     tipo ENUM('membro', 'adm') DEFAULT 'membro' NOT NULL,
     disponibilidade_horas_semana INT NULL,
     objetivo_profissional VARCHAR(255) NULL,
     perfil_completo BOOLEAN DEFAULT FALSE,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_usuarios_github_user_id (github_user_id)
+) ENGINE=InnoDB;
+
+-- 1b. Tokens revogados (denylist de jti para o /logout — correção A1 da auditoria de segurança)
+CREATE TABLE tokens_revogados (
+    jti VARCHAR(64) NOT NULL PRIMARY KEY,
+    revogado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- 2. Habilidades

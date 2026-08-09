@@ -75,10 +75,11 @@ module.exports = {
 
       // ETAPA 6: apenas membros ATIVOS na listagem normal (o histórico com
       // status completo fica preservado no banco e no perfil/reputação).
+      // M8 (auditoria): NÃO expor email/bio/localização a qualquer autenticado.
       const sql = `
         SELECT me.id, me.usuario_id, me.funcao, me.funcao_id, f.nome AS funcao_nome,
                me.vaga_id, me.status, me.entrou_em, me.saiu_em,
-               u.nome AS usuario_nome, u.email AS usuario_email, u.bio AS usuario_bio, u.localizacao AS usuario_localizacao
+               u.nome AS usuario_nome
         FROM membros_equipe me
         JOIN usuarios u ON me.usuario_id = u.id
         LEFT JOIN funcoes f ON me.funcao_id = f.id

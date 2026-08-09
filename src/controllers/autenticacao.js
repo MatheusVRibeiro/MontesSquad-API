@@ -1,8 +1,10 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { revogarToken, extrairJti } = require("../services/sessao");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -17,6 +19,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 const RESET_SECRET = process.env.JWT_RESET_SECRET || JWT_SECRET;
 const RESET_EXPIRES_IN = process.env.JWT_RESET_EXPIRES_IN || "15m";
 
+// Token de sessão com jti (revogação pontual via denylist) e token_versao
+// (invalidação em massa na troca de senha) — correção A1 da auditoria.
 function gerarTokenLogin(usuario) {
   return jwt.sign(
     {
@@ -24,6 +28,8 @@ function gerarTokenLogin(usuario) {
       email: usuario.email,
       nome: usuario.nome,
       tipo: usuario.tipo,
+      jti: crypto.randomUUID(),
+      token_versao: usuario.token_versao ?? 0,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
@@ -85,7 +91,7 @@ module.exports = {
       }
 
       const sql = `
-        SELECT id, nome, email, senha, tipo, bio, localizacao, avatar_url
+        SELECT id, nome, email, senha, tipo, bio, localizacao, avatar_url, token_versao
         FROM usuarios
         WHERE email = ?
         LIMIT 1
@@ -133,6 +139,28 @@ module.exports = {
       });
     } catch (error) {
       return next(new AppError("Erro no login", 500, error));
+    }
+  },
+
+  // POST /logout (verificarToken) — revoga o token atual pelo jti na denylist
+  // tokens_revogados. Correção A1 da auditoria: sessão JWT sem revogação.
+  async logout(request, response, next) {
+    try {
+      const authorization = request.headers.authorization || "";
+      const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : null;
+      // O token já foi validado pelo verificarToken — jwt.decode aqui serve
+      // apenas para extrair o jti (não valida assinatura, e não precisa).
+      const jti = token ? extrairJti(token) : null;
+      if (jti) {
+        await revogarToken(jti);
+      }
+      return response.status(200).json({
+        sucesso: true,
+        message: "Sessão encerrada",
+        dados: null,
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao encerrar sessão", 500, error));
     }
   },
 
@@ -222,7 +250,7 @@ module.exports = {
 
       const sql = `
         UPDATE usuarios
-        SET senha = ?, senha_definida = 1
+        SET senha = ?, senha_definida = 1, token_versao = token_versao + 1
         WHERE id = ?
       `;
 

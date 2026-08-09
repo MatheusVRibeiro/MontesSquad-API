@@ -79,7 +79,9 @@ describe("GitHub Auth — cadastro/login (Evolução ETAPA 1)", () => {
       .get("/auth/github/callback")
       .query({ code: "c1", state });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain("/auth/github/complete-profile?token=");
+    // M1 (auditoria): token entregue no FRAGMENT (#token), nunca em query string
+    expect(res.headers.location).toContain("/auth/github/complete-profile#token=");
+    expect(res.headers.location).not.toContain("?token=");
   });
 
   it("callback com e-mail existente → NÃO vincula automaticamente (redirect email-exists)", async () => {
@@ -112,7 +114,9 @@ describe("GitHub Auth — cadastro/login (Evolução ETAPA 1)", () => {
       .get("/auth/github/callback")
       .query({ code: "c1", state });
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain("/auth/github/success?token=");
+    // M1 (auditoria): token entregue no FRAGMENT (#token), nunca em query string
+    expect(res.headers.location).toContain("/auth/github/success#token=");
+    expect(res.headers.location).not.toContain("?token=");
   });
 
   it("complete-profile autenticado → atualiza nome/bio e devolve token", async () => {

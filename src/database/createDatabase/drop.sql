@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS tokens_revogados;
 DROP TABLE IF EXISTS historico_responsaveis_tarefa;
 DROP TABLE IF EXISTS eventos_projeto;
 DROP TABLE IF EXISTS eventos_xp;

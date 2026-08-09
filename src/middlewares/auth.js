@@ -9,7 +9,14 @@ if (!JWT_SECRET) {
 }
 
 // Middleware para verificar se o usuário está logado
-function verificarToken(request, response, next) {
+// Hardening (auditoria docs/RELATORIO_AUDITORIA_SEGURANCA.md — A1 + BAIXO jwt):
+//   - exige algoritmo HS256 (rejeita 'none' / HS384 / RS256);
+//   - exige expiração explícita (token sem exp é rejeitado);
+//   - denylist: jti presente em tokens_revogados (logout) → 401 'Sessão revogada';
+//   - token_versao: se o payload carrega a versão da sessão, compara com a
+//     coluna usuarios.token_versao — troca de senha incrementa a versão e
+//     derruba TODOS os tokens antigos em massa.
+async function verificarToken(request, response, next) {
   const authorization = request.headers.authorization;
 
   if (!authorization) {
@@ -32,13 +39,64 @@ function verificarToken(request, response, next) {
 
   const token = partes[1];
 
+  let payload;
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    request.usuarioAutenticado = payload;
-    return next();
+    // algorithms explícito: nenhum algoritmo além de HS256 é aceito.
+    // jwt.verify já rejeita token expirado (exp) e assinatura inválida.
+    payload = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
   } catch (error) {
     return next(new AppError("Token inválido ou expirado", 401, error));
   }
+
+  // Token sem expiração explícita → rejeitado (não pode ser válido para sempre)
+  if (!payload.exp || typeof payload.exp !== "number") {
+    return response.status(401).json({
+      sucesso: false,
+      message: "Token inválido ou expirado",
+      dados: null,
+    });
+  }
+
+  try {
+    // Denylist: token revogado via /logout (jti em tokens_revogados)
+    if (payload.jti) {
+      const [revogados] = await db.query(
+        "SELECT 1 FROM tokens_revogados WHERE jti = ? LIMIT 1",
+        [String(payload.jti)]
+      );
+      if (revogados.length > 0) {
+        return response.status(401).json({
+          sucesso: false,
+          message: "Sessão revogada",
+          dados: null,
+        });
+      }
+    }
+
+    // token_versao: invalidação em massa (troca de senha incrementa a versão
+    // no banco → qualquer token emitido com versão anterior morre na hora)
+    if (payload.token_versao !== undefined) {
+      const [linhas] = await db.query(
+        "SELECT token_versao FROM usuarios WHERE id = ? LIMIT 1",
+        [payload.id]
+      );
+      if (
+        linhas.length === 0 ||
+        Number(linhas[0].token_versao) !== Number(payload.token_versao)
+      ) {
+        return response.status(401).json({
+          sucesso: false,
+          message: "Sessão revogada",
+          dados: null,
+        });
+      }
+    }
+  } catch (error) {
+    return next(new AppError("Erro na verificação de sessão", 500, error));
+  }
+
+  request.usuarioAutenticado = payload;
+  return next();
 }
 
 // Middleware para validar se o usuário é administrador global
@@ -157,8 +215,9 @@ async function somenteMembroOuDonoDoProjeto(request, response, next) {
       return next();
     }
 
-    // 2. Verifica se é membro da equipe (squad)
-    const sqlMember = `SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? LIMIT 1`;
+    // 2. Verifica se é membro da equipe (squad) — apenas vínculo ATIVO:
+    // ex-membros (status='saiu'/'removido') NÃO mantêm acesso ao projeto (A2).
+    const sqlMember = `SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ? AND status = 'ativo' LIMIT 1`;
     const [memberRows] = await db.query(sqlMember, [pId, request.usuarioAutenticado.id]);
 
     if (memberRows.length === 0) {

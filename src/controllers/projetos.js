@@ -130,8 +130,9 @@ module.exports = {
   },
   async editarProjeto(request, response, next) {
     try {
+      // M9 (auditoria): criador_id NÃO é editável — removido do allowlist
+      // (mass assignment permitia transferir o projeto via PATCH).
       const {
-        criador_id,
         titulo,
         descricao,
         status,
@@ -184,7 +185,6 @@ module.exports = {
       const fields = [];
       const values = [];
 
-      if (criador_id !== undefined) { fields.push("criador_id = ?"); values.push(criador_id); }
       if (titulo !== undefined) { fields.push("titulo = ?"); values.push(titulo); }
       if (descricao !== undefined) { fields.push("descricao = ?"); values.push(descricao); }
       if (status !== undefined) { fields.push("status = ?"); values.push(status); }
@@ -218,7 +218,6 @@ module.exports = {
 
       const dados = projRows[0] || {
         id,
-        criador_id,
         titulo,
         descricao,
         status,
@@ -374,6 +373,10 @@ module.exports = {
           projeto.figmaUrl = null;
           projeto.discordUrl = null;
           projeto.documentacaoUrl = null;
+          // M10 (auditoria): projeto privado NÃO vaza vagas (descrição/
+          // função/nível) para não-membros — mesmo tratamento de tasks/
+          // messages/applications.
+          projeto.vagas = [];
         }
       } else {
         // 4.1 Busca tarefas do Kanban (com subtarefas) — ETAPA 10: filtra

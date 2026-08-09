@@ -60,7 +60,7 @@ function criarPoolEtapa9({
     },
     // somenteMembroOuDonoDoProjeto — vínculo de squad (qualquer logado é membro aqui)
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
       resposta: () => [[{ id: 9 }], []],
     },
     // reatribuir — SELECT do membro ATIVO (SQL real: com LIMIT 1 no final;

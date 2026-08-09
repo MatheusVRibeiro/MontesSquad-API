@@ -191,7 +191,7 @@ function criarPoolTaskMatching({
     // somenteMembroOuDonoDoProjeto — SELECT vínculo (LIMIT 1); dono passa sem
     // chegar aqui (auth.js: criador_id === token.id → next() antes da query 2)
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
       resposta: (params) => (membroIds.includes(Number(params[1])) ? [[{ id: 7 }], []] : [[], []]),
     },
     // Service — SELECT das tarefas candidatas (matcher de PREFIXO, sem `$`:
@@ -422,7 +422,7 @@ describe("ETAPA 17 — GET /projetos/:projetoId/tasks/recomendadas (contrato de 
         resposta: () => [[{ criador_id: DONO_ID }], []],
       },
       {
-        match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
+        match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
         resposta: () => [[{ id: 7 }], []],
       },
       { match: (sql) => /from tarefas/.test(sql), resposta: () => [muitas, []] },

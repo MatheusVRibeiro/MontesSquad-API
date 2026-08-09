@@ -9,9 +9,18 @@ const db = require("../database/connection");
 const githubOAuth = require("../services/githubOAuth");
 const AppError = require("../utils/errors");
 
+// Token de sessão com jti (revogação pontual via denylist) e token_versao
+// (invalidação em massa na troca de senha) — correção A1 da auditoria.
 function gerarTokenLogin(usuario) {
   return jwt.sign(
-    { id: usuario.id, email: usuario.email, nome: usuario.nome, tipo: usuario.tipo },
+    {
+      id: usuario.id,
+      email: usuario.email,
+      nome: usuario.nome,
+      tipo: usuario.tipo,
+      jti: crypto.randomUUID(),
+      token_versao: usuario.token_versao ?? 0,
+    },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "8h" }
   );
@@ -94,7 +103,9 @@ async function callbackAuthGitHub(request, response, next) {
       const usuario = porGithub[0];
       const token = gerarTokenLogin(usuario);
       const frontendUrl = process.env.GITHUB_FRONTEND_SUCCESS_URL || "http://localhost:5173";
-      return response.redirect(`${frontendUrl}/auth/github/success?token=${encodeURIComponent(token)}`);
+      // M1 (auditoria): token em QUERY STRING vaza via Referer/histórico —
+      // entregar no FRAGMENT (#token), que nunca vai ao servidor.
+      return response.redirect(`${frontendUrl}/auth/github/success#token=${encodeURIComponent(token)}`);
     }
 
     // 2. Conta existente por e-mail? NÃO vincula automaticamente (regra de negócio)
@@ -125,7 +136,9 @@ async function callbackAuthGitHub(request, response, next) {
     const usuario = novo[0];
     const token = gerarTokenLogin(usuario);
     const frontendUrl = process.env.GITHUB_FRONTEND_SUCCESS_URL || "http://localhost:5173";
-    return response.redirect(`${frontendUrl}/auth/github/complete-profile?token=${encodeURIComponent(token)}`);
+    // M1 (auditoria): token em QUERY STRING vaza via Referer/histórico —
+    // entregar no FRAGMENT (#token), que nunca vai ao servidor.
+    return response.redirect(`${frontendUrl}/auth/github/complete-profile#token=${encodeURIComponent(token)}`);
   } catch (error) {
     return next(new AppError("Erro no callback GitHub", 500, error));
   }
@@ -151,6 +164,9 @@ async function completarPerfilGitHub(request, response, next) {
       fields.push("senha = ?"); values.push(hash);
       // Senha local definida → permite desconectar o GitHub (ETAPA 2)
       fields.push("senha_definida = 1");
+      // Credencial alterada → invalida tokens antigos (A1); o token NOVO
+      // retornado abaixo já carrega a versão incrementada.
+      fields.push("token_versao = token_versao + 1");
     }
 
     if (fields.length > 0) {

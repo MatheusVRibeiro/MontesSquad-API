@@ -1,6 +1,31 @@
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 
+// A3 (IDOR): valida se o usuário é dono (ou adm) do projeto cujo vínculo de
+// habilidade está sendo alterado. Usa o projeto_id REAL do vínculo (body/query),
+// NUNCA o params.id da rota (habilidades_projeto não tem coluna id; params.id
+// não é um projeto). Retorna null se OK, ou { status, message } para a resposta.
+async function validarDonoDoProjeto(projetoId, usuarioAutenticado) {
+  const [projRows] = await db.query(
+    "SELECT criador_id FROM projetos WHERE id = ? LIMIT 1",
+    [projetoId]
+  );
+
+  if (projRows.length === 0) {
+    return { status: 404, message: "Projeto não encontrado" };
+  }
+
+  const ehAdm = usuarioAutenticado && usuarioAutenticado.tipo === "adm";
+  if (!ehAdm && Number(projRows[0].criador_id) !== Number(usuarioAutenticado.id)) {
+    return {
+      status: 403,
+      message: "Acesso negado: Apenas o proprietário do projeto pode alterar as habilidades do projeto",
+    };
+  }
+
+  return null;
+}
+
 module.exports = {
   async listarHabilidadesProjeto(request, response, next) {
     try {
@@ -35,6 +60,17 @@ module.exports = {
     try {
       const { projeto_id, habilidade_id } = request.body;
       
+      // A3 (IDOR): checagem de dono pelo projeto REAL do vínculo (defesa em
+      // profundidade — o middleware somenteDonoDoProjeto também valida body.projeto_id)
+      const erroDono = await validarDonoDoProjeto(projeto_id, request.usuarioAutenticado);
+      if (erroDono) {
+        return response.status(erroDono.status).json({
+          sucesso: false,
+          message: erroDono.message,
+          dados: null,
+        });
+      }
+
       const sql = `
         INSERT INTO habilidades_projeto (projeto_id, habilidade_id)
         VALUES (?, ?);
@@ -67,6 +103,17 @@ module.exports = {
         return response.status(400).json({
           sucesso: false,
           message: "projeto_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
+
+      // A3 (IDOR): valida o dono pelo projeto_id REAL do vínculo (body/query),
+      // nunca pelo params.id da rota (que não é um projeto).
+      const erroDono = await validarDonoDoProjeto(projeto_id, request.usuarioAutenticado);
+      if (erroDono) {
+        return response.status(erroDono.status).json({
+          sucesso: false,
+          message: erroDono.message,
           dados: null,
         });
       }
@@ -110,6 +157,17 @@ module.exports = {
         return response.status(400).json({
           sucesso: false,
           message: "projeto_id e habilidade_id são obrigatórios",
+          dados: null,
+        });
+      }
+
+      // A3 (IDOR): valida o dono pelo projeto_id REAL do vínculo (body/query),
+      // nunca pelo params.id da rota (que não é um projeto).
+      const erroDono = await validarDonoDoProjeto(projeto_id, request.usuarioAutenticado);
+      if (erroDono) {
+        return response.status(erroDono.status).json({
+          sucesso: false,
+          message: erroDono.message,
           dados: null,
         });
       }

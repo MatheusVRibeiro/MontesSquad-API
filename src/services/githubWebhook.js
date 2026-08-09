@@ -11,14 +11,24 @@ function getWebhookSecret() {
   return secret.trim();
 }
 
+/** M4: true se GITHUB_WEBHOOK_SECRET está configurado (sem lançar erro). */
+function isWebhookConfigured() {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  return !!(secret && secret.trim() !== "");
+}
+
 /**
  * Valida X-Hub-Signature-256 (HMAC SHA-256 do raw body) com timingSafeEqual.
  * Aceita também o formato antigo X-Hub-Signature (SHA-1) como fallback.
+ * M4: as checagens de body/assinatura acontecem ANTES de resolver o secret —
+ * uma requisição sem assinatura é rejeitada (false) sem tocar em
+ * getWebhookSecret() (que lançaria 500 com detalhe interno se ausente).
  */
 function verifyWebhookSignature(rawBody, signature, providedSecret) {
-  const secret = providedSecret || getWebhookSecret();
   if (!rawBody || typeof rawBody !== "string") return false;
   if (!signature) return false;
+
+  const secret = providedSecret || getWebhookSecret();
 
   const assinatura256 = "sha256=" + crypto
     .createHmac("sha256", secret)
@@ -102,6 +112,7 @@ async function isDeliveryDuplicate(deliveryId, conn) {
 
 module.exports = {
   verifyWebhookSignature,
+  isWebhookConfigured,
   getDeliveryId,
   getEventName,
   registerDelivery,

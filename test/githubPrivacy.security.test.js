@@ -289,7 +289,7 @@ function criarPoolTaskGithub() {
       resposta: () => [[{ criador_id: 5 }], []],
     },
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
       resposta: () => [[], []],
     },
   ]);

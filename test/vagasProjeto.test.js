@@ -40,7 +40,7 @@ function criarPoolComVagas({
     },
     // somenteMembroOuDonoDoProjeto — membro da equipe (usuário 5 não é membro)
     {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
+      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
       resposta: (params) => (params[1] === 5 ? [[], []] : [[{ id: 9 }], []]),
     },
     // Validação de função existente (POST/PATCH)

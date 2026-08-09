@@ -142,4 +142,28 @@ describe("Webhook GitHub — assinatura e idempotência (ETAPA 4)", () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toContain("X-GitHub-Delivery");
   });
+
+  it("secret não configurado → 503 genérico SEM detalhe interno (M4)", async () => {
+    const { raw, sig } = assinar(payloadBase); // assina com o secret de teste ANTES de removê-lo
+    const secretOriginal = process.env.GITHUB_WEBHOOK_SECRET;
+    delete process.env.GITHUB_WEBHOOK_SECRET;
+    try {
+      const appSemSecret = buildApp(criarPoolWebhook());
+      const res = await request(appSemSecret)
+        .post("/github/webhook")
+        .set("X-GitHub-Delivery", "del-nosecret")
+        .set("X-GitHub-Event", "push")
+        .set("X-Hub-Signature-256", sig)
+        .send(raw)
+        .set("Content-Type", "application/json");
+
+      expect(res.status).toBe(503);
+      expect(res.body.message).toBe("Webhook não configurado");
+      // NUNCA deve vazar o nome da variável interna nem mensagem do throw
+      expect(JSON.stringify(res.body)).not.toContain("GITHUB_WEBHOOK_SECRET");
+      expect(JSON.stringify(res.body)).not.toContain("não configurado (ETAPA 4)");
+    } finally {
+      process.env.GITHUB_WEBHOOK_SECRET = secretOriginal;
+    }
+  });
 });

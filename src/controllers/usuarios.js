@@ -6,9 +6,11 @@ module.exports = {
   async listarUsuarios(request, response, next) {
     try {
 
+      // M7 (auditoria): NÃO expor email/tipo na listagem — apenas campos
+      // públicos de perfil (id, nome, localizacao, bio, avatar_url).
       const sql = `
           SELECT 
-            id, nome, email, bio, localizacao, avatar_url, tipo, criado_em
+            id, nome, bio, localizacao, avatar_url, criado_em
             FROM usuarios 
         `;
 
@@ -110,6 +112,10 @@ module.exports = {
         values.push(senhaCriptografada);
         // Usuário definiu senha utilizável (ex.: conta criada via GitHub) → habilita desconexão do GitHub (ETAPA 2)
         fields.push("senha_definida = 1");
+        // Correção A1 (auditoria): troca de senha invalida TODAS as sessões
+        // ativas — token_versao incrementa e tokens antigos morrem no
+        // verificarToken (payload.token_versao !== banco → 401).
+        fields.push("token_versao = token_versao + 1");
       }
 
       if (fields.length > 0) {

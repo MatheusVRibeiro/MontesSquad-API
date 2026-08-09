@@ -27,15 +27,14 @@ function criarPool(opts = {}) {
       match: (sql) => /^select criador_id from projetos where id = \? limit 1$/.test(sql),
       resposta: () => [[{ criador_id: criadorId }], []],
     },
-    // Middleware somenteMembroOuDonoDoProjeto (2)
-    {
-      match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? limit 1$/.test(sql),
-      resposta: () => (membro ? [[{ id: 9 }], []] : [[], []]),
-    },
-    // reatribuir: novo responsável precisa ser membro ATIVO
+    // Middleware somenteMembroOuDonoDoProjeto (assumir/abandonar) E reatribuir
+    // (novo responsável precisa ser membro ATIVO) usam a MESMA query
+    // (status='ativo' LIMIT 1) — um único handler cobre as duas:
+    // `membro` controla o middleware; `novoMembroAtivo` controla a checagem
+    // do controller em POST /reatribuir.
     {
       match: (sql) => /^select id from membros_equipe where projeto_id = \? and usuario_id = \? and status = 'ativo' limit 1$/.test(sql),
-      resposta: () => (novoMembroAtivo ? [[{ id: 9 }], []] : [[], []]),
+      resposta: () => (membro && novoMembroAtivo ? [[{ id: 9 }], []] : [[], []]),
     },
     // UPDATE assumir (ETAPA 7)
     {
