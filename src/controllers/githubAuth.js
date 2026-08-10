@@ -76,10 +76,15 @@ async function iniciarAuthGitHub(request, response, next) {
  * 2. não encontrado → verifica conta por e-mail (não vincula automaticamente);
  * 3. sem conta → cria registro parcial (cadastro_origem='github') → onboarding.
  */
+
 async function callbackAuthGitHub(request, response, next) {
   try {
-    const { code, state } = request.query || {};
+    const { code, state, installation_id } = request.query || {};
     if (!code || !state) {
+      if (installation_id) {
+        const frontendUrl = process.env.GITHUB_FRONTEND_SUCCESS_URL || "http://localhost:5173";
+        return response.redirect(`${frontendUrl}/configuracoes?installation_id=${installation_id}`);
+      }
       return response.status(400).json({ sucesso: false, message: "code e state são obrigatórios", dados: null });
     }
     const payloadState = validarStateOAuth(String(state));

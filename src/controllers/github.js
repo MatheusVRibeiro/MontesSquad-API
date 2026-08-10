@@ -124,8 +124,12 @@ async function trocarCodePorUsuarioGitHub(code) {
  */
 async function callback(request, response, next) {
   try {
-    const { code, state } = request.query || {};
+    const { code, state, installation_id } = request.query || {};
     if (!code || !state) {
+      if (installation_id) {
+        const frontendUrl = process.env.GITHUB_FRONTEND_SUCCESS_URL || "http://localhost:5173";
+        return response.redirect(`${frontendUrl}/configuracoes?installation_id=${installation_id}`);
+      }
       return response.status(400).json({ sucesso: false, message: "code e state são obrigatórios", dados: null });
     }
     const usuarioId = validarStateOAuth(String(state));
