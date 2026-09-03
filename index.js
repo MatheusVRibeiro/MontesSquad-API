@@ -127,10 +127,4 @@ if (require.main === module) {
     });
 }
 
-app.get('/', (request, response) => {
-    response.send('Hello World');
-});
-
 module.exports = app;
-
-

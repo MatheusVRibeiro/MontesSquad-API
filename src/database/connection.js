@@ -20,28 +20,24 @@ const config = {
     há limite para o número de solicitações de conexão enfileiradas. (Padrão: 0)
 */
 
-let pool;
+// Cria o pool de conexões sincronamente para garantir que a exportação seja sempre válida
+const pool = mysql.createPool(config);
 
-const initializeDatabase = async () => {
+const testarConexao = async () => {
     try {
-        // Cria a pool de conexões
-        pool = mysql.createPool(config);
-        // Executa uma consulta simples para verificar a conexão
-
-        // Testa a conectividade com uma conexão simples
         const connection = await pool.getConnection();
         console.log('Conexão MySQL estabelecida com sucesso!');
-        connection.release(); // Libera a conexão de volta para a pool
+        connection.release();
     } catch (error) {
         console.error('Erro ao conectar ao banco de dados: ', error.message);
-        process.exit(1); // Encerra o processo se a conexão falhar
-        // 1 é um código de saída padrão para indicar um erro de execução        
+        if (process.env.NODE_ENV !== 'test') {
+            process.exit(1);
+        }
     }
 };
 
-// Inicializa o banco de dados ao carregar o módulo
-initializeDatabase();
-
+// Testa a conectividade em background
+testarConexao();
 
 module.exports = pool;
 

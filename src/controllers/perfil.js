@@ -9,6 +9,7 @@
 // Regra perfil_completo: nome preenchido E pelo menos 1 habilidade cadastrada.
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { ehInteiroPositivo } = require("../utils/validators");
 
 const NIVEIS_INTERESSE = ["baixo", "medio", "alto"];
 const NIVEIS_HABILIDADE = ["iniciante", "intermediario", "avancado"];
@@ -17,10 +18,6 @@ const CAMPOS_USUARIO_PERFIL = `
   id, nome, email, bio, localizacao, avatar_url, tipo,
   disponibilidade_horas_semana, objetivo_profissional, perfil_completo
 `;
-
-function ehInteiroPositivo(valor) {
-  return Number.isInteger(valor) && valor > 0;
-}
 
 module.exports = {
   // GET /funcoes — lista as funções cadastradas (logado)

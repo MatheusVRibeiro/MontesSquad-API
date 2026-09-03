@@ -2,6 +2,7 @@ const db = require("../database/connection");
 const AppError = require("../utils/errors");
 const { criarNotificacao } = require("./notificacoes");
 const { registrarEvento } = require("../services/eventosProjeto");
+const { ehInteiroPositivo } = require("../utils/validators");
 
 module.exports = {
   async candidatarSe(request, response, next) {
@@ -71,14 +72,14 @@ module.exports = {
       // Vaga opcional (ETAPA 5 — candidatura direcionada por vaga)
       let vagaIdFinal = null;
       if (vaga_id !== undefined && vaga_id !== null && vaga_id !== "") {
-        const vagaIdNum = Number(vaga_id);
-        if (!Number.isInteger(vagaIdNum) || vagaIdNum <= 0) {
+        if (!ehInteiroPositivo(vaga_id)) {
           return response.status(400).json({
             sucesso: false,
             message: "vaga_id deve ser um número inteiro positivo",
             dados: null,
           });
         }
+        const vagaIdNum = Number(vaga_id);
 
         // Vaga deve pertencer ao projeto e estar aberta
         const [vagaRows] = await db.query(

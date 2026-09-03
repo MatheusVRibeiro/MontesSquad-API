@@ -2,6 +2,8 @@ const db = require("../database/connection");
 const AppError = require("../utils/errors");
 const { criarNotificacao } = require("./notificacoes");
 const { registrarEvento } = require("../services/eventosProjeto");
+const { gerarBranchTask } = require("../utils/slugify");
+const { ehInteiroPositivo } = require("../utils/validators");
 
 const PRIORIDADES_VALIDAS = ["low", "medium", "high"];
 const STATUS_VALIDOS = ["todo", "doing", "review", "done"];
@@ -28,7 +30,7 @@ function validarHabilidades(habilidades) {
   if (!Array.isArray(habilidades)) {
     return "habilidades deve ser um array de ids";
   }
-  if (habilidades.some((id) => !Number.isInteger(Number(id)) || Number(id) <= 0)) {
+  if (habilidades.some((id) => !ehInteiroPositivo(id))) {
     return "habilidades deve conter apenas ids válidos";
   }
   return null;
@@ -187,7 +189,6 @@ module.exports = {
         [projetoId]
       );
       if (projRows[0]?.github_repository_id) {
-        const { gerarBranchTask } = require("../utils/slugify");
         githubBranch = gerarBranchTask(novaTarefaId, titulo);
         await db.query(
           "UPDATE tarefas SET github_branch = ? WHERE id = ? AND projeto_id = ?",

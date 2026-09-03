@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
 const { revogarToken, extrairJti } = require("../services/sessao");
+const { gerarTemplateRecuperacaoSenha } = require("../utils/emailTemplate");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -196,36 +197,75 @@ module.exports = {
 
       const usuario = rows[0];
       const token = gerarTokenReset(usuario);
+      const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiraEm = new Date(Date.now() + 15 * 60 * 1000);
       const resetUrl = process.env.RESET_PASSWORD_URL || `http://localhost:5173/resetar-senha?token=${token}`;
-      const transporter = criarTransporter();
 
-      if (!transporter) {
-        // Anti-enumeração: responde igual ao caso genérico — não revela se o e-mail existe.
-        // O problema de configuração fica registrado apenas no log do servidor.
-        console.error("Configuração SMTP ausente para envio do e-mail de recuperação");
-        return response.status(200).json({
-          sucesso: true,
-          message: "Se o e-mail existir, enviaremos um link",
-          dados: null,
-        });
+      // Registra o código de 6 dígitos no banco com expiração de 15 minutos
+      try {
+        await db.query(
+          `INSERT INTO codigos_recuperacao (usuario_id, email, codigo, token_reset, expira_em)
+           VALUES (?, ?, ?, ?, ?)`,
+          [usuario.id, usuario.email, codigo, token, expiraEm]
+        );
+      } catch (dbErr) {
+        console.error("[recuperarSenha] Aviso ao registrar código no banco:", dbErr.message);
       }
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: usuario.email,
-        subject: "Recuperação de senha - MontesSquad",
-        html: `
-          <p>Olá, ${usuario.nome}!</p>
-          <p>Recebemos uma solicitação para redefinir sua senha.</p>
-          <p>Use este link para criar uma nova senha:</p>
-          <p><a href="${resetUrl}">${resetUrl}</a></p>
-          <p>Esse link expira em alguns minutos.</p>
-        `,
-      });
+      const emailHtml = gerarTemplateRecuperacaoSenha({ nome: usuario.nome, codigo, resetUrl });
+
+      // Envio via Mailtrap API ou fallback para SMTP (Nodemailer)
+      if (process.env.MAILTRAP_API_TOKEN) {
+        try {
+          const mailtrapRes = await fetch("https://send.api.mailtrap.io/api/send", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.MAILTRAP_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: {
+                email: process.env.MAILTRAP_FROM_EMAIL || "hello@demomailtrap.co",
+                name: process.env.MAILTRAP_FROM_NAME || "MontesSquad",
+              },
+              to: [{ email: usuario.email }],
+              subject: `Código de Recuperação: ${codigo} - MontesSquad`,
+              html: emailHtml,
+              category: "Recuperação de Senha",
+            }),
+          });
+
+          if (!mailtrapRes.ok) {
+            const errText = await mailtrapRes.text();
+            console.error(`[Mailtrap API] Falha no envio: HTTP ${mailtrapRes.status} - ${errText}`);
+          }
+        } catch (mailtrapErr) {
+          console.error("[Mailtrap API] Erro ao conectar:", mailtrapErr.message);
+        }
+      } else {
+        const transporter = criarTransporter();
+
+        if (!transporter) {
+          // Anti-enumeração: responde igual ao caso genérico — não revela se o e-mail existe.
+          // O problema de configuração fica registrado apenas no log do servidor.
+          console.error("Configuração de e-mail ausente (configure MAILTRAP_API_TOKEN ou SMTP)");
+        } else {
+          try {
+            await transporter.sendMail({
+              from: process.env.SMTP_FROM || process.env.SMTP_USER,
+              to: usuario.email,
+              subject: `Código de Recuperação: ${codigo} - MontesSquad`,
+              html: emailHtml,
+            });
+          } catch (smtpErr) {
+            console.error("[SMTP] Erro ao enviar e-mail:", smtpErr.message);
+          }
+        }
+      }
 
       return response.status(200).json({
         sucesso: true,
-        message: "Se o e-mail existir, enviaremos um link",
+        message: "Se o e-mail existir, enviaremos um código de recuperação",
         dados: null,
       });
     } catch (error) {
@@ -233,11 +273,80 @@ module.exports = {
     }
   },
 
+  /**
+   * POST /verificar-codigo-recuperacao
+   * Valida o código de 6 dígitos recebido por e-mail e devolve o token para alteração de senha.
+   */
+  async verificarCodigoRecuperacao(request, response, next) {
+    try {
+      const { email, codigo } = request.body;
+
+      if (!email || !codigo) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Email e código são obrigatórios",
+          dados: null,
+        });
+      }
+
+      const codigoLimpo = String(codigo).trim();
+
+      const [rows] = await db.query(
+        `SELECT id, usuario_id, token_reset, expira_em, utilizado
+         FROM codigos_recuperacao
+         WHERE email = ? AND codigo = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [email, codigoLimpo]
+      );
+
+      if (rows.length === 0) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Código de confirmação inválido",
+          dados: null,
+        });
+      }
+
+      const registro = rows[0];
+
+      if (registro.utilizado === 1) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Este código já foi utilizado. Solicite um novo.",
+          dados: null,
+        });
+      }
+
+      if (new Date() > new Date(registro.expira_em)) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Código expirado. O código tem validade de 15 minutos. Solicite um novo.",
+          dados: null,
+        });
+      }
+
+      // Marca como verificado para evitar reuso
+      await db.query("UPDATE codigos_recuperacao SET utilizado = 1 WHERE id = ?", [registro.id]);
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Código verificado com sucesso! Você já pode alterar sua senha.",
+        dados: {
+          token: registro.token_reset,
+          email,
+        },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao verificar código de recuperação", 500, error));
+    }
+  },
+
   async resetarSenha(request, response, next) {
     try {
-      const { token, novaSenha } = request.body;
+      const { token, novaSenha, email, codigo } = request.body;
 
-      if (!token || !novaSenha) {
+      if (!novaSenha || (!token && (!email || !codigo))) {
         return response.status(400).json({
           sucesso: false,
           message: "Token e novaSenha são obrigatórios",
@@ -245,19 +354,43 @@ module.exports = {
         });
       }
 
-      let payload;
-      try {
-        payload = jwt.verify(token, RESET_SECRET);
-      } catch (error) {
-        // B3 (QA): token inválido/expirado → resposta genérica com dados:null.
-        // NÃO ecoar o erro cru do jwt (ex.: "jwt malformed") no campo dados —
-        // o middleware global de erro dev/teste ecoaria originalError.message.
-        return response.status(400).json({
-          sucesso: false,
-          message: "Token inválido ou expirado",
-          dados: null,
-        });
+      let userId;
+
+      if (token) {
+        try {
+          const payload = jwt.verify(token, RESET_SECRET);
+          userId = payload.id;
+        } catch (error) {
+          // B3 (QA): token inválido/expirado → resposta genérica com dados:null
+          return response.status(400).json({
+            sucesso: false,
+            message: "Token inválido ou expirado",
+            dados: null,
+          });
+        }
+      } else {
+        // Validação direta por código caso o token não tenha sido fornecido
+        const [rows] = await db.query(
+          `SELECT id, usuario_id, expira_em, utilizado
+           FROM codigos_recuperacao
+           WHERE email = ? AND codigo = ?
+           ORDER BY id DESC
+           LIMIT 1`,
+          [email, String(codigo).trim()]
+        );
+
+        if (rows.length === 0 || rows[0].utilizado === 1 || new Date() > new Date(rows[0].expira_em)) {
+          return response.status(400).json({
+            sucesso: false,
+            message: "Código inválido ou expirado",
+            dados: null,
+          });
+        }
+
+        userId = rows[0].usuario_id;
+        await db.query("UPDATE codigos_recuperacao SET utilizado = 1 WHERE id = ?", [rows[0].id]);
       }
+
       const senhaCriptografada = await bcrypt.hash(novaSenha, 10);
 
       const sql = `
@@ -266,7 +399,7 @@ module.exports = {
         WHERE id = ?
       `;
 
-      const [result] = await db.query(sql, [senhaCriptografada, payload.id]);
+      const [result] = await db.query(sql, [senhaCriptografada, userId]);
 
       if (result.affectedRows === 0) {
         return response.status(404).json({
@@ -285,4 +418,4 @@ module.exports = {
       return next(new AppError("Token inválido ou expirado", 400, error));
     }
   },
-};
+};
