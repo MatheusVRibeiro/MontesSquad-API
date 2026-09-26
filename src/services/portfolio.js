@@ -42,38 +42,20 @@ async function obterPortfolio(usuarioId) {
 
   if (membros.length === 0) return { projetos: [] };
 
-  // 3. Tasks verificadas por merge GitHub (concluida_via='github_merge'),
-  //    por projeto. Excluídas (soft-delete ETAPA 10) não contam.
+  // 3. Tasks concluídas pelo usuário no projeto. Excluídas (soft-delete) não contam.
   const [tasksRows] = await db.query(
     `SELECT projeto_id AS projetoId, COUNT(*) AS total
      FROM tarefas
-     WHERE responsavel_id = ? AND concluida_via = 'github_merge' AND excluida_em IS NULL
+     WHERE responsavel_id = ? AND status = 'done' AND excluida_em IS NULL
      GROUP BY projeto_id`,
     [usuarioId]
   );
 
-  // 4. Commits por projeto (autor GitHub vinculado à conta MontesSquad).
-  const [commitsRows] = await db.query(
-    `SELECT c.projeto_id AS projetoId, COUNT(*) AS total
-     FROM github_commits c
-     JOIN usuarios u ON u.github_user_id = c.author_github_id
-     WHERE u.id = ?
-     GROUP BY c.projeto_id`,
-    [usuarioId]
-  );
+  // 4. Commits e PRs desativados temporariamente (implementação futura)
+  const commitsRows = [];
+  const prsRows = [];
 
-  // 5. PRs mergeados por projeto — vinculados a tasks do usuário
-  //    (mesma semântica do rankings: autor via tarefas.responsavel_id).
-  const [prsRows] = await db.query(
-    `SELECT pr.projeto_id AS projetoId, COUNT(*) AS total
-     FROM github_pull_requests pr
-     JOIN tarefas t ON t.id = pr.tarefa_id
-     WHERE pr.estado = 'merged' AND t.responsavel_id = ?
-     GROUP BY pr.projeto_id`,
-    [usuarioId]
-  );
-
-  // 6. Tecnologias do projeto (habilidades_projeto JOIN habilidades).
+  // 5. Tecnologias do projeto (habilidades_projeto JOIN habilidades).
   const [techsRows] = await db.query(
     `SELECT hp.projeto_id AS projetoId, h.nome
      FROM habilidades_projeto hp
@@ -83,15 +65,11 @@ async function obterPortfolio(usuarioId) {
     [usuarioId]
   );
 
-  // 7. Contribuições por task (evidência verificável): tasks do usuário
-  //    concluídas por merge, com PR mergeado e contagem de commits.
+  // 6. Contribuições por task: tarefas concluídas pelo usuário
   const [contribRows] = await db.query(
-    `SELECT t.id AS tarefaId, t.projeto_id AS projetoId, t.titulo,
-            pr.numero AS prNumero, pr.url AS prUrl, pr.mergeado_em AS mergeadoEm,
-            (SELECT COUNT(*) FROM github_commits c WHERE c.tarefa_id = t.id) AS commits
+    `SELECT t.id AS tarefaId, t.projeto_id AS projetoId, t.titulo, t.concluida_em AS mergeadoEm
      FROM tarefas t
-     LEFT JOIN github_pull_requests pr ON pr.tarefa_id = t.id AND pr.estado = 'merged'
-     WHERE t.responsavel_id = ? AND t.concluida_via = 'github_merge' AND t.excluida_em IS NULL
+     WHERE t.responsavel_id = ? AND t.status = 'done' AND t.excluida_em IS NULL
      ORDER BY t.concluida_em DESC`,
     [usuarioId]
   );
@@ -106,8 +84,8 @@ async function obterPortfolio(usuarioId) {
     return mapa;
   };
   const tasksPorProjeto = agruparTotal(tasksRows);
-  const commitsPorProjeto = agruparTotal(commitsRows);
-  const prsPorProjeto = agruparTotal(prsRows);
+  const commitsPorProjeto = {};
+  const prsPorProjeto = {};
 
   const tecnologiasPorProjeto = {};
   for (const r of techsRows) {
@@ -123,9 +101,9 @@ async function obterPortfolio(usuarioId) {
     contribuicoesPorProjeto[chave].push({
       tarefaId: Number(r.tarefaId),
       titulo: r.titulo || null,
-      prNumero: r.prNumero != null ? Number(r.prNumero) : null,
-      prUrl: r.prUrl || null,
-      commits: Number(r.commits || 0),
+      prNumero: null,
+      prUrl: null,
+      commits: 0,
       mergeadoEm: r.mergeadoEm || null,
     });
   }

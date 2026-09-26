@@ -50,7 +50,6 @@ router.post("/notificacoes/ler-tudo", verificarToken, notificacoesController.mar
 
 // Reputação e Portfólio
 router.get("/usuarios/:id/reputacao", verificarToken, reputacaoController.obterReputacao);
-router.get("/usuarios/:id/reputacao-tecnica", verificarToken, reputacaoController.obterReputacaoTecnica);
 router.get("/usuarios/:id/portfolio", portfolioController.obterPortfolio);
 
 // Habilidades Globais

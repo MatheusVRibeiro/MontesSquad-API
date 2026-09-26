@@ -100,7 +100,11 @@ app.use((err, req, res, next) => {
     const status = err.status || 500;
 
     const originalErr = err.originalError || err;
-    console.error('Erro capturado pelo Middleware Global:', originalErr);
+    if (status >= 500) {
+        console.error('Erro capturado pelo Middleware Global:', originalErr);
+    } else {
+        console.warn(`[${status}] ${req.method} ${req.originalUrl || req.url} - ${err.message || 'Erro operacional'}`);
+    }
 
     const isProduction = process.env.NODE_ENV === 'production';
 
