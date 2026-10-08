@@ -12,9 +12,9 @@ const db = require("../database/connection");
  * INSERT IGNORE → idempotente: revogar o mesmo jti duas vezes não gera erro.
  * Não lança erro se jti for ausente (token antigo sem jti não é revogável).
  */
-async function revogarToken(jti) {
-  if (!jti) return;
-  await db.query("INSERT IGNORE INTO tokens_revogados (jti) VALUES (?)", [String(jti)]);
+async function revogarToken(usuarioId) {
+  if (!usuarioId) return;
+  await db.query("UPDATE usuarios SET token_versao = token_versao + 1 WHERE id = ?", [usuarioId]);
 }
 
 /**

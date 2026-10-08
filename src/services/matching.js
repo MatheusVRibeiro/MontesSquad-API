@@ -308,21 +308,24 @@ async function recomendarProjetos(usuarioId) {
     [idUsuario]
   );
 
-  // 2. Funções de interesse do usuário (ETAPA 3 — funcoes_usuario)
-  const [funcoesRows] = await db.query(
-    `SELECT fu.funcao_id, f.nome, fu.nivel_interesse
-     FROM funcoes_usuario fu
-     INNER JOIN funcoes f ON f.id = fu.funcao_id
-     WHERE fu.usuario_id = ?`,
-    [idUsuario]
-  );
-
-  // 3. Disponibilidade declarada (ETAPA 3 — usuarios.disponibilidade_horas_semana)
+  // 2. Disponibilidade e funções de interesse declaradas no perfil (JSON)
   const [userRows] = await db.query(
-    "SELECT id, disponibilidade_horas_semana FROM usuarios WHERE id = ? LIMIT 1",
+    "SELECT id, disponibilidade_horas_semana, funcoes_interesse FROM usuarios WHERE id = ? LIMIT 1",
     [idUsuario]
   );
   if (userRows.length === 0) return [];
+
+  let funcoes = [];
+  if (userRows[0].funcoes_interesse) {
+    try {
+      const raw = typeof userRows[0].funcoes_interesse === "string"
+        ? JSON.parse(userRows[0].funcoes_interesse)
+        : userRows[0].funcoes_interesse;
+      funcoes = Array.isArray(raw) ? raw : [];
+    } catch {
+      funcoes = [];
+    }
+  }
 
   const usuario = {
     id: idUsuario,
@@ -332,9 +335,9 @@ async function recomendarProjetos(usuarioId) {
       nome: h.nome || h.habilidade,
       nivel: h.nivel,
     })),
-    funcoes: funcoesRows.map((f) => ({
-      funcaoId: f.funcao_id,
-      nome: f.nome || f.funcao,
+    funcoes: funcoes.map((f) => ({
+      funcaoId: f.funcao_id || f.id,
+      nome: f.nome || f.funcao || "",
       nivelInteresse: f.nivel_interesse,
     })),
   };

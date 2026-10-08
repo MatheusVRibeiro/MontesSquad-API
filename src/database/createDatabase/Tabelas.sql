@@ -18,14 +18,19 @@ CREATE TABLE usuarios (
     disponibilidade_horas_semana INT NULL,
     objetivo_profissional VARCHAR(255) NULL,
     perfil_completo BOOLEAN DEFAULT FALSE,
+    nivel INT DEFAULT 1 NOT NULL,
+    xp INT DEFAULT 0 NOT NULL,
+    xp_para_proximo INT DEFAULT 250 NOT NULL,
+    media_notas DECIMAL(3,2) DEFAULT 0.00,
+    total_avaliacoes INT DEFAULT 0,
+    projetos_concluidos INT DEFAULT 0,
+    reset_codigo VARCHAR(10) NULL,
+    reset_token VARCHAR(500) NULL,
+    reset_expira_em DATETIME NULL,
+    reset_utilizado TINYINT(1) DEFAULT 0,
+    funcoes_interesse JSON NULL,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_usuarios_github_user_id (github_user_id)
-) ENGINE=InnoDB;
-
--- 1b. Tokens revogados (denylist de jti para o /logout — correção A1 da auditoria de segurança)
-CREATE TABLE tokens_revogados (
-    jti VARCHAR(64) NOT NULL PRIMARY KEY,
-    revogado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- 2. Habilidades
@@ -77,14 +82,7 @@ CREATE TABLE funcoes (
     nome VARCHAR(100) NOT NULL UNIQUE
 ) ENGINE=InnoDB;
 
-CREATE TABLE funcoes_usuario (
-    usuario_id INT NOT NULL,
-    funcao_id INT NOT NULL,
-    nivel_interesse ENUM('baixo', 'medio', 'alto') DEFAULT 'medio',
-    PRIMARY KEY (usuario_id, funcao_id),
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (funcao_id) REFERENCES funcoes(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+
 
 -- 5c. Vagas do Projeto (Evolução ETAPA 4 — papéis/vagas necessárias no projeto)
 CREATE TABLE vagas_projeto (
@@ -159,18 +157,6 @@ CREATE TABLE mensagens (
     FOREIGN KEY (destinatario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 10. Estatísticas do Usuário (Reputação)
-CREATE TABLE estatisticas_usuario (
-    usuario_id INT PRIMARY KEY,
-    media_notas DECIMAL(3,2) DEFAULT 0.00,
-    total_avaliacoes INT DEFAULT 0,
-    projetos_concluidos INT DEFAULT 0,
-    nivel INT DEFAULT 1 NOT NULL,
-    xp INT DEFAULT 0 NOT NULL,
-    xp_para_proximo INT DEFAULT 250 NOT NULL,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
 -- 11. Tarefas (Kanban)
 CREATE TABLE tarefas (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -178,6 +164,7 @@ CREATE TABLE tarefas (
     responsavel_id INT NULL,
     titulo VARCHAR(255) NOT NULL,
     descricao TEXT,
+    subtasks JSON NULL,
     status ENUM('todo', 'doing', 'review', 'done') DEFAULT 'todo' NOT NULL,
     prioridade ENUM('low', 'medium', 'high') DEFAULT 'medium' NOT NULL,
     data_vencimento DATE NULL,
@@ -192,13 +179,7 @@ CREATE TABLE tarefas (
 ) ENGINE=InnoDB;
 
 -- 11b. Habilidades da Tarefa (Evolução ETAPA 7 — tasks com habilidades e dificuldade)
-CREATE TABLE habilidades_tarefa (
-    tarefa_id INT NOT NULL,
-    habilidade_id INT NOT NULL,
-    PRIMARY KEY (tarefa_id, habilidade_id),
-    FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
-    FOREIGN KEY (habilidade_id) REFERENCES habilidades(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+
 
 
 -- 11. Eventos de XP (idempotente por chave)
@@ -233,29 +214,6 @@ CREATE TABLE eventos_projeto (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 12. Subtarefas (Checklist)
-CREATE TABLE subtarefas (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    tarefa_id INT NOT NULL,
-    titulo VARCHAR(255) NOT NULL,
-    concluida BOOLEAN DEFAULT FALSE NOT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- 12b. Histórico de Responsáveis da Tarefa (Evolução ETAPA 9 — abandonar/remover/reatribuir)
-CREATE TABLE historico_responsaveis_tarefa (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    tarefa_id INT NOT NULL,
-    usuario_id INT NOT NULL,
-    acao ENUM('assumiu', 'abandonou', 'removido', 'reatribuido', 'concluiu') NOT NULL,
-    realizado_por INT NULL,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tarefa_id) REFERENCES tarefas(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    FOREIGN KEY (realizado_por) REFERENCES usuarios(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
 -- 13. Conquistas (Achievements)
 CREATE TABLE conquistas (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -285,4 +243,9 @@ CREATE TABLE notificacoes (
     lida BOOLEAN DEFAULT FALSE,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB;
+
+-- Índices para otimização de performance
+CREATE INDEX idx_notificacoes_usuario_lida ON notificacoes (usuario_id, lida);
+CREATE INDEX idx_mensagens_projeto_criado ON mensagens (projeto_id, criado_em);
+CREATE INDEX idx_membros_usuario_status ON membros_equipe (usuario_id, status);

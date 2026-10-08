@@ -58,21 +58,6 @@ async function verificarToken(request, response, next) {
   }
 
   try {
-    // Denylist: token revogado via /logout (jti em tokens_revogados)
-    if (payload.jti) {
-      const [revogados] = await db.query(
-        "SELECT 1 FROM tokens_revogados WHERE jti = ? LIMIT 1",
-        [String(payload.jti)]
-      );
-      if (revogados.length > 0) {
-        return response.status(401).json({
-          sucesso: false,
-          message: "Sessão revogada",
-          dados: null,
-        });
-      }
-    }
-
     // token_versao: invalidação em massa (troca de senha incrementa a versão
     // no banco → qualquer token emitido com versão anterior morre na hora)
     if (payload.token_versao !== undefined) {

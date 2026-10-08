@@ -143,15 +143,10 @@ describe("ETAPA 10 — GET /projetos/:projetoId/tarefas filtra excluídas", () =
 describe("ETAPA 10 — GET /usuarios/:id/reputacao mostra histórico mesmo saindo/removido", () => {
   it("→ 200 e o histórico inclui vínculos 'ativo', 'saiu' e 'removido' (sem filtrar status='ativo')", async () => {
     const pool = criarPoolFake([
-      // 1. usuário existe
+      // 1. usuário unificado com nível/xp
       {
-        match: (sql) => /^select id, nome from usuarios where id = \? limit 1$/.test(sql),
-        resposta: () => [[{ id: 2, nome: "Lucas" }], []],
-      },
-      // 2. estatísticas — sem linha → defaults
-      {
-        match: (sql) => /^select nivel, xp, xp_para_proximo, projetos_concluidos from estatisticas_usuario where usuario_id = \? limit 1$/.test(sql),
-        resposta: () => [[], []],
+        match: (sql) => /^select id, nome, nivel, xp, xp_para_proximo, projetos_concluidos from usuarios where id = \? limit 1$/.test(sql),
+        resposta: () => [[{ id: 2, nome: "Lucas", nivel: 1, xp: 0, xp_para_proximo: 100, projetos_concluidos: 0 }], []],
       },
       // 3. avaliações (rating)
       {

@@ -151,9 +151,8 @@ module.exports = {
       const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : null;
       // O token já foi validado pelo verificarToken — jwt.decode aqui serve
       // apenas para extrair o jti (não valida assinatura, e não precisa).
-      const jti = token ? extrairJti(token) : null;
-      if (jti) {
-        await revogarToken(jti);
+      if (request.usuarioAutenticado?.id) {
+        await revogarToken(request.usuarioAutenticado.id);
       }
       return response.status(200).json({
         sucesso: true,
@@ -199,14 +198,19 @@ module.exports = {
       const token = gerarTokenReset(usuario);
       const codigo = Math.floor(100000 + Math.random() * 900000).toString();
       const expiraEm = new Date(Date.now() + 15 * 60 * 1000);
-      const resetUrl = process.env.RESET_PASSWORD_URL || `http://localhost:5173/resetar-senha?token=${token}`;
+      const resetUrl = process.env.RESET_PASSWORD_URL
+        ? (process.env.RESET_PASSWORD_URL.includes("token=")
+            ? `${process.env.RESET_PASSWORD_URL}${token}`
+            : `${process.env.RESET_PASSWORD_URL}${process.env.RESET_PASSWORD_URL.includes("?") ? "&" : "?"}token=${token}`)
+        : `http://localhost:5173/resetar-senha?token=${token}`;
 
-      // Registra o código de 6 dígitos no banco com expiração de 15 minutos
+      // Registra o código de 6 dígitos diretamente no usuário com expiração de 15 minutos
       try {
         await db.query(
-          `INSERT INTO codigos_recuperacao (usuario_id, email, codigo, token_reset, expira_em)
-           VALUES (?, ?, ?, ?, ?)`,
-          [usuario.id, usuario.email, codigo, token, expiraEm]
+          `UPDATE usuarios
+           SET reset_codigo = ?, reset_token = ?, reset_expira_em = ?, reset_utilizado = 0
+           WHERE id = ?`,
+          [codigo, token, expiraEm, usuario.id]
         );
       } catch (dbErr) {
         console.error("[recuperarSenha] Aviso ao registrar código no banco:", dbErr.message);
@@ -292,10 +296,9 @@ module.exports = {
       const codigoLimpo = String(codigo).trim();
 
       const [rows] = await db.query(
-        `SELECT id, usuario_id, token_reset, expira_em, utilizado
-         FROM codigos_recuperacao
-         WHERE email = ? AND codigo = ?
-         ORDER BY id DESC
+        `SELECT id, email, reset_token, reset_expira_em, reset_utilizado
+         FROM usuarios
+         WHERE email = ? AND reset_codigo = ?
          LIMIT 1`,
         [email, codigoLimpo]
       );
@@ -310,7 +313,7 @@ module.exports = {
 
       const registro = rows[0];
 
-      if (registro.utilizado === 1) {
+      if (registro.reset_utilizado === 1) {
         return response.status(400).json({
           sucesso: false,
           message: "Este código já foi utilizado. Solicite um novo.",
@@ -318,7 +321,7 @@ module.exports = {
         });
       }
 
-      if (new Date() > new Date(registro.expira_em)) {
+      if (new Date() > new Date(registro.reset_expira_em)) {
         return response.status(400).json({
           sucesso: false,
           message: "Código expirado. O código tem validade de 15 minutos. Solicite um novo.",
@@ -327,13 +330,13 @@ module.exports = {
       }
 
       // Marca como verificado para evitar reuso
-      await db.query("UPDATE codigos_recuperacao SET utilizado = 1 WHERE id = ?", [registro.id]);
+      await db.query("UPDATE usuarios SET reset_utilizado = 1 WHERE id = ?", [registro.id]);
 
       return response.status(200).json({
         sucesso: true,
         message: "Código verificado com sucesso! Você já pode alterar sua senha.",
         dados: {
-          token: registro.token_reset,
+          token: registro.reset_token,
           email,
         },
       });
@@ -371,15 +374,14 @@ module.exports = {
       } else {
         // Validação direta por código caso o token não tenha sido fornecido
         const [rows] = await db.query(
-          `SELECT id, usuario_id, expira_em, utilizado
-           FROM codigos_recuperacao
-           WHERE email = ? AND codigo = ?
-           ORDER BY id DESC
+          `SELECT id, reset_expira_em, reset_utilizado
+           FROM usuarios
+           WHERE email = ? AND reset_codigo = ?
            LIMIT 1`,
           [email, String(codigo).trim()]
         );
 
-        if (rows.length === 0 || rows[0].utilizado === 1 || new Date() > new Date(rows[0].expira_em)) {
+        if (rows.length === 0 || rows[0].reset_utilizado === 1 || new Date() > new Date(rows[0].reset_expira_em)) {
           return response.status(400).json({
             sucesso: false,
             message: "Código inválido ou expirado",
@@ -387,15 +389,15 @@ module.exports = {
           });
         }
 
-        userId = rows[0].usuario_id;
-        await db.query("UPDATE codigos_recuperacao SET utilizado = 1 WHERE id = ?", [rows[0].id]);
+        userId = rows[0].id;
       }
 
       const senhaCriptografada = await bcrypt.hash(novaSenha, 10);
 
       const sql = `
         UPDATE usuarios
-        SET senha = ?, senha_definida = 1, token_versao = token_versao + 1
+        SET senha = ?, senha_definida = 1, token_versao = token_versao + 1,
+            reset_codigo = NULL, reset_token = NULL, reset_expira_em = NULL, reset_utilizado = 1
         WHERE id = ?
       `;
 
@@ -418,4 +420,4 @@ module.exports = {
       return next(new AppError("Token inválido ou expirado", 400, error));
     }
   },
-};
+};

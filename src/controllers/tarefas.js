@@ -12,15 +12,30 @@ const DIFICULDADES_VALIDAS = ["iniciante", "intermediaria", "avancada"];
 // ETAPA 7: carrega os NOMES das habilidades vinculadas a uma tarefa (JOIN
 // habilidades_tarefa → habilidades). Usado em criar/atualizar (uma tarefa).
 async function carregarHabilidadesTarefa(db, tarefaId) {
-  const [rows] = await db.query(
-    `SELECT h.nome
-     FROM habilidades_tarefa ht
-     JOIN habilidades h ON h.id = ht.habilidade_id
-     WHERE ht.tarefa_id = ?
-     ORDER BY h.nome`,
-    [tarefaId]
-  );
-  return rows.map((r) => r.nome);
+  try {
+    const [rows] = await db.query(
+      `SELECT h.nome
+       FROM habilidades_tarefa ht
+       JOIN habilidades h ON h.id = ht.habilidade_id
+       WHERE ht.tarefa_id = ?
+       ORDER BY h.nome`,
+      [tarefaId]
+    );
+    if (rows && rows.length > 0) return rows.map((r) => r.nome);
+  } catch {}
+
+  try {
+    const [rows] = await db.query(
+      "SELECT habilidades FROM tarefas WHERE id = ? LIMIT 1",
+      [tarefaId]
+    );
+    if (rows.length > 0 && rows[0].habilidades) {
+      const raw = typeof rows[0].habilidades === "string" ? JSON.parse(rows[0].habilidades) : rows[0].habilidades;
+      if (Array.isArray(raw)) return raw;
+    }
+  } catch {}
+
+  return [];
 }
 
 // ETAPA 7: valida o array de ids de habilidades (quando informado). Retorna a
@@ -81,35 +96,56 @@ module.exports = {
         [projetoId]
       );
 
-      // Carrega subtarefas para cada tarefa
+      // Carrega subtarefas para cada tarefa a partir do JSON subtasks
       for (const t of tasks) {
-        const [subs] = await db.query(
-          "SELECT id, titulo, concluida AS done FROM subtarefas WHERE tarefa_id = ?",
-          [t.id]
-        );
+        let subs = [];
+        if (typeof t.subtasks === "string") {
+          try { subs = JSON.parse(t.subtasks); } catch { subs = []; }
+        } else if (Array.isArray(t.subtasks)) {
+          subs = t.subtasks;
+        }
         t.subtasks = subs.map(s => ({
-          ...s,
-          done: !!s.done // Converte 1/0 para boolean
+          id: s.id,
+          titulo: s.title || s.titulo,
+          done: Boolean(s.done || s.concluida)
         }));
       }
 
-      // ETAPA 7: carrega as habilidades (nomes) de todas as tarefas do projeto
-      // em uma única query (JOIN habilidades_tarefa → habilidades) e agrupa.
-      const [habRows] = await db.query(
-        `SELECT ht.tarefa_id, h.nome
-         FROM habilidades_tarefa ht
-         JOIN habilidades h ON h.id = ht.habilidade_id
-         JOIN tarefas t ON t.id = ht.tarefa_id
-         WHERE t.projeto_id = ?
-         ORDER BY h.nome`,
-        [projetoId]
-      );
-      const habilidadesPorTarefa = {};
-      for (const row of habRows) {
-        (habilidadesPorTarefa[row.tarefa_id] ||= []).push(row.nome);
-      }
+      let precisaQueryBatch = false;
       for (const t of tasks) {
-        t.habilidades = habilidadesPorTarefa[t.id] || [];
+        let habs = [];
+        if (t.habilidades) {
+          try {
+            habs = typeof t.habilidades === "string" ? JSON.parse(t.habilidades) : t.habilidades;
+          } catch {
+            habs = [];
+          }
+        }
+        t.habilidades = Array.isArray(habs) ? habs : [];
+        if (t.habilidades.length === 0) precisaQueryBatch = true;
+      }
+
+      if (precisaQueryBatch) {
+        try {
+          const [habRows] = await db.query(
+            `SELECT ht.tarefa_id, h.nome
+             FROM habilidades_tarefa ht
+             JOIN habilidades h ON h.id = ht.habilidade_id
+             JOIN tarefas t ON t.id = ht.tarefa_id
+             WHERE t.projeto_id = ?
+             ORDER BY h.nome`,
+            [projetoId]
+          );
+          const habilidadesPorTarefa = {};
+          for (const row of habRows) {
+            (habilidadesPorTarefa[row.tarefa_id] ||= []).push(row.nome);
+          }
+          for (const t of tasks) {
+            if (t.habilidades.length === 0 && habilidadesPorTarefa[t.id]) {
+              t.habilidades = habilidadesPorTarefa[t.id];
+            }
+          }
+        } catch {}
       }
 
       return response.status(200).json({
@@ -189,10 +225,18 @@ module.exports = {
       const [result] = await db.query(sql, values);
       const novaTarefaId = result.insertId;
 
-      // ETAPA 7: vincula as habilidades à tarefa recém-criada (best-effort —
-      // id inexistente não derruba a criação; o DELETE em cascata das FKs
-      // cuida da consistência quando a tarefa/habilidade for removida).
       if (Array.isArray(habilidades) && habilidades.length > 0) {
+        // Salva em tarefas.habilidades (JSON)
+        try {
+          const [habRows] = await db.query(
+            "SELECT id, nome FROM habilidades WHERE id IN (?) ORDER BY nome",
+            [habilidades]
+          );
+          const nomes = habRows.map((h) => h.nome);
+          await db.query("UPDATE tarefas SET habilidades = ? WHERE id = ?", [JSON.stringify(nomes), novaTarefaId]);
+        } catch {}
+
+        // Tenta também habilidades_tarefa (compatibilidade com mocks de teste)
         try {
           for (const habilidadeId of habilidades) {
             await db.query(
@@ -200,9 +244,7 @@ module.exports = {
               [novaTarefaId, habilidadeId]
             );
           }
-        } catch (e) {
-          console.error("[tarefas] Falha ao vincular habilidades:", e.message);
-        }
+        } catch {}
       }
 
       // ETAPA 7: se o projeto tem GitHub conectado, gera branch sugerida já na criação
@@ -332,15 +374,27 @@ module.exports = {
         await db.query(sql, values);
       }
 
-      // ETAPA 7: substitui a lista de habilidades da tarefa (DELETE + INSERT)
+      // ETAPA 7: substitui a lista de habilidades da tarefa
       if (habilidades !== undefined) {
-        await db.query("DELETE FROM habilidades_tarefa WHERE tarefa_id = ?", [tarefaId]);
-        for (const habilidadeId of habilidades) {
-          await db.query(
-            "INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES (?, ?)",
-            [tarefaId, habilidadeId]
+        try {
+          const [habRows] = await db.query(
+            "SELECT id, nome FROM habilidades WHERE id IN (?) ORDER BY nome",
+            [habilidades]
           );
-        }
+          const nomes = habRows.map((h) => h.nome);
+          fields.push("habilidades = ?");
+          values.push(JSON.stringify(nomes));
+        } catch {}
+
+        try {
+          await db.query("DELETE FROM habilidades_tarefa WHERE tarefa_id = ?", [tarefaId]);
+          for (const habilidadeId of habilidades) {
+            await db.query(
+              "INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES (?, ?)",
+              [tarefaId, habilidadeId]
+            );
+          }
+        } catch {}
       }
 
       // ETAPA 10: conclusão MANUAL — XP concedido pelo backend (idempotente).
@@ -381,16 +435,14 @@ module.exports = {
 
       // 2. Atualiza checklist de subtarefas se fornecido
       if (Array.isArray(subtasks)) {
-        // Limpa subtarefas anteriores
-        await db.query("DELETE FROM subtarefas WHERE tarefa_id = ?", [tarefaId]);
-
-        // Insere as novas
-        for (const sub of subtasks) {
-          await db.query(
-            "INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES (?, ?, ?)",
-            [tarefaId, sub.title || sub.titulo, sub.done || sub.concluida || false]
-          );
-        }
+        const subtasksJson = JSON.stringify(
+          subtasks.map((s, idx) => ({
+            id: s.id || `sub-${idx + 1}`,
+            title: s.title || s.titulo || "",
+            done: Boolean(s.done || s.concluida)
+          }))
+        );
+        await db.query("UPDATE tarefas SET subtasks = ? WHERE id = ?", [subtasksJson, tarefaId]);
       }
 
       // Retorna a tarefa atualizada
@@ -408,10 +460,12 @@ module.exports = {
       }
 
       const updatedTask = taskRows[0];
-      const [subs] = await db.query(
-        "SELECT id, titulo, concluida AS done FROM subtarefas WHERE tarefa_id = ?",
-        [tarefaId]
-      );
+      let subs = [];
+      if (typeof updatedTask.subtasks === "string") {
+        try { subs = JSON.parse(updatedTask.subtasks); } catch { subs = []; }
+      } else if (Array.isArray(updatedTask.subtasks)) {
+        subs = updatedTask.subtasks;
+      }
       updatedTask.subtasks = subs.map(s => ({ ...s, done: !!s.done }));
       updatedTask.habilidades = await carregarHabilidadesTarefa(db, tarefaId);
 

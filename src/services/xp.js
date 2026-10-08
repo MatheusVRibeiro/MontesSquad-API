@@ -42,31 +42,25 @@ async function awardXp({ usuarioId, tarefaId = null, tipo, xp, idempotencyKey, c
   if (!insertResult || insertResult.affectedRows === 0) {
     // Já concedido (webhook repetido, clique duplicado...) — sem efeitos
     const [atual] = await executor.query(
-      `SELECT xp, nivel FROM estatisticas_usuario WHERE usuario_id = ? LIMIT 1`,
+      `SELECT xp, nivel FROM usuarios WHERE id = ? LIMIT 1`,
       [usuarioId]
     );
     const linha = atual[0] || { xp: 0, nivel: 1 };
     return { concedido: false, xpAtual: linha.xp, nivel: linha.nivel };
   }
 
-  // 2. Upsert em estatisticas_usuario (xp += valor; recalc nível)
+  // 2. Atualiza xp e recalcula nível na tabela usuarios
   await executor.query(
-    `INSERT INTO estatisticas_usuario (usuario_id, xp, nivel)
-     VALUES (?, ?, 1)
-     ON DUPLICATE KEY UPDATE xp = xp + VALUES(xp)`,
-    [usuarioId, valorXp]
-  );
-
-  // 3. Recalcula nível (regra atual: +1 nível a cada 250 xp, base 1)
-  await executor.query(
-    `UPDATE estatisticas_usuario
-     SET nivel = FLOOR(xp / 250) + 1, xp_para_proximo = 250 - (xp % 250)
-     WHERE usuario_id = ?`,
-    [usuarioId]
+    `UPDATE usuarios
+     SET xp = xp + ?,
+         nivel = FLOOR((xp + ?) / 250) + 1,
+         xp_para_proximo = 250 - ((xp + ?) % 250)
+     WHERE id = ?`,
+    [valorXp, valorXp, valorXp, usuarioId]
   );
 
   const [estado] = await executor.query(
-    `SELECT xp, nivel FROM estatisticas_usuario WHERE usuario_id = ? LIMIT 1`,
+    `SELECT xp, nivel FROM usuarios WHERE id = ? LIMIT 1`,
     [usuarioId]
   );
   const linha = estado[0] || { xp: valorXp, nivel: 1 };

@@ -75,11 +75,7 @@ INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel) VALUES
 (4, 4, 'iniciante');     -- Juliana sabe Docker
 
 -- 4b. Inserir Funções de Interesse dos Usuários (Evolução ETAPA 3)
-INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES 
-(1, 1, 'alto'),          -- Lucas: Backend
-(2, 8, 'alto'),          -- Fernanda: Data
-(3, 2, 'alto'),          -- Roberto: Frontend
-(4, 3, 'alto');          -- Juliana: Full Stack
+          -- Juliana: Full Stack
 
 -- 4c. Inserir Vagas dos Projetos (Evolução ETAPA 4 — papéis/vagas necessárias)
 INSERT INTO vagas_projeto (projeto_id, funcao_id, quantidade, preenchidas, descricao, nivel_desejado, status) VALUES 
@@ -157,12 +153,7 @@ INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, 
 (6, 1, NULL, 'Deploy em staging', 'Subir a primeira versão estável na nuvem.', 'todo', 'high', '2026-07-10', 'avancada');
 
 -- 13b. Habilidades das Tarefas (Evolução ETAPA 7)
-INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES
-(2, 1),
-(3, 1),
-(4, 2),
-(5, 1),
-(6, 4);
+
 
 -- 14. Inserir Subtarefas das Tarefas
 INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES

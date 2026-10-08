@@ -19,9 +19,12 @@ module.exports = {
         return next(new AppError("Usuário não encontrado", 404));
       }
 
-      // 1. Verifica se o usuário existe
+      // 1. Verifica se o usuário existe e busca estatísticas unificadas
       const [usuarios] = await db.query(
-        "SELECT id, nome FROM usuarios WHERE id = ? LIMIT 1",
+        `SELECT id, nome, nivel, xp, xp_para_proximo, projetos_concluidos
+         FROM usuarios
+         WHERE id = ?
+         LIMIT 1`,
         [usuarioId]
       );
 
@@ -29,20 +32,11 @@ module.exports = {
         return next(new AppError("Usuário não encontrado", 404));
       }
 
-      // 2. Estatísticas (nível/xp) — defaults caso não exista linha
-      const [stats] = await db.query(
-        `SELECT nivel, xp, xp_para_proximo, projetos_concluidos
-         FROM estatisticas_usuario
-         WHERE usuario_id = ?
-         LIMIT 1`,
-        [usuarioId]
-      );
-
-      const s = stats[0] || {};
-      const level = s.nivel ?? 1;
-      const xp = s.xp ?? 0;
-      const xpToNext = s.xp_para_proximo ?? 100;
-      const projectsCompleted = s.projetos_concluidos ?? 0;
+      const u = usuarios[0];
+      const level = u.nivel ?? 1;
+      const xp = u.xp ?? 0;
+      const xpToNext = u.xp_para_proximo ?? 250;
+      const projectsCompleted = u.projetos_concluidos ?? 0;
 
       // 3. Avaliações (rating) — média e total recebidos
       const [avaliacoes] = await db.query(

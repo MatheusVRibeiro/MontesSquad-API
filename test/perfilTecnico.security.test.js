@@ -234,6 +234,7 @@ describe("Perfil técnico ETAPA 3 — contrato com token válido (200)", () => {
               disponibilidade_horas_semana: 30,
               objetivo_profissional: "Tech Lead",
               perfil_completo: 1,
+              funcoes_interesse: JSON.stringify([{ id: 1, nome: "Backend", nivel_interesse: "alto" }]),
             },
           ],
           [],

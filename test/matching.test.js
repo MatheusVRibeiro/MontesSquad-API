@@ -166,7 +166,7 @@ describe("ETAPA 16 — PESOS_MATCHING e calcularScore (unit)", () => {
 // Queries REAIS do service (normalizadas — conferir src/services/matching.js):
 const SQL_HABILIDADES_USUARIO = /^select hu\.habilidade_id, h\.nome, hu\.nivel from habilidades_usuario hu inner join habilidades h on h\.id = hu\.habilidade_id where hu\.usuario_id = \?$/;
 const SQL_FUNCOES_USUARIO = /^select fu\.funcao_id, f\.nome, fu\.nivel_interesse from funcoes_usuario fu inner join funcoes f on f\.id = fu\.funcao_id where fu\.usuario_id = \?$/;
-const SQL_USUARIO = /^select id, disponibilidade_horas_semana from usuarios where id = \? limit 1$/;
+const SQL_USUARIO = /^select id, disponibilidade_horas_semana, funcoes_interesse from usuarios where id = \? limit 1$/;
 const SQL_CANDIDATOS = /^select p\.id, p\.titulo, p\.descricao, p\.status, p\.visibilidade, p\.criador_id, v\.id as vagaid, v\.funcao_id as funcaoid, f\.nome as funcaonome, v\.nivel_desejado as niveldesejado, v\.quantidade, v\.preenchidas, v\.status as vagastatus from projetos p inner join vagas_projeto v on v\.projeto_id = p\.id and v\.status = 'aberta' and v\.preenchidas < v\.quantidade inner join funcoes f on f\.id = v\.funcao_id where p\.visibilidade = 'publico' and p\.status in \('aberto', 'em_andamento'\) and not exists \( select 1 from membros_equipe me where me\.projeto_id = p\.id and me\.usuario_id = \? and me\.status = 'ativo' \) order by p\.id limit 100/;
 const SQL_HABILIDADES_PROJETO = /^select hp\.projeto_id as projetoid, hp\.habilidade_id as habilidadeid, h\.nome from habilidades_projeto hp inner join habilidades h on h\.id = hp\.habilidade_id where hp\.projeto_id in \(\?\)$/;
 
@@ -200,7 +200,7 @@ function criarPoolMatching({
     // Funções de interesse (Q2)
     { match: (sql) => SQL_FUNCOES_USUARIO.test(sql), resposta: () => [funcoesUsuario, []] },
     // Disponibilidade do usuário (Q3)
-    { match: (sql) => SQL_USUARIO.test(sql), resposta: () => [usuarioInexistente ? [] : [{ id: 42, disponibilidade_horas_semana: disponibilidade }], []] },
+    { match: (sql) => SQL_USUARIO.test(sql), resposta: () => [usuarioInexistente ? [] : [{ id: 42, disponibilidade_horas_semana: disponibilidade, funcoes_interesse: JSON.stringify(funcoesUsuario) }], []] },
     // Projetos candidatos (Q4) — específico antes de qualquer genérico
     {
       match: (sql) => SQL_CANDIDATOS.test(sql),
