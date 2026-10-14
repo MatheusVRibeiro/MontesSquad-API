@@ -35,7 +35,7 @@ if (process.env.TRUST_PROXY === "1") {
 // (trim + lower-case + sem barra final) para tolerar variações de digitação.
 const allowedOrigins = (process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',')
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:8080']
+  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:8080', 'https://montesquad.caramellologistica.com', 'https://squad-hub-front.caramellologistica.com']
 ).map(url => url.trim().toLowerCase().replace(/\/+$/, ''));
 
 app.use(cors({
