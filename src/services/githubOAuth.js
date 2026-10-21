@@ -9,10 +9,10 @@ const GITHUB_API_EMAILS = "https://api.github.com/user/emails";
 
 function envObrigatoria(nome) {
   const v = process.env[nome];
-  if (!v || v.trim() === "") {
+  if (!v || String(v).trim() === "") {
     throw new Error(`GITHUB env ausente: ${nome} (configure no .env)`);
   }
-  return v.trim();
+  return String(v).trim().replace(/^['"]|['"]$/g, "");
 }
 
 function getClientId() {

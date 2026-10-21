@@ -48,20 +48,27 @@ function gerarTokenReset(usuario) {
   );
 }
 
+function limparTexto(val) {
+  if (!val) return "";
+  return String(val).trim().replace(/^['"]|['"]$/g, "");
+}
+
 function criarTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const host = limparTexto(process.env.SMTP_HOST);
+  const port = Number(limparTexto(process.env.SMTP_PORT || "587")) || 587;
+  const user = limparTexto(process.env.SMTP_USER);
+  const pass = limparTexto(process.env.SMTP_PASSWORD);
 
   if (!host || !user || !pass) {
     return null;
   }
 
+  const secureVal = limparTexto(process.env.SMTP_SECURE || "false");
+
   return nodemailer.createTransport({
     host,
     port,
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    secure: secureVal === "true" || port === 465,
     auth: {
       user,
       pass,
