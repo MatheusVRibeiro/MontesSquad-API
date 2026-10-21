@@ -183,20 +183,21 @@ module.exports = {
         });
       }
 
+      const emailNormalizado = String(email).trim().toLowerCase();
+
       const sql = `
         SELECT id, nome, email
         FROM usuarios
-        WHERE email = ?
+        WHERE LOWER(email) = ?
         LIMIT 1
       `;
 
-      const [rows] = await db.query(sql, [email]);
+      const [rows] = await db.query(sql, [emailNormalizado]);
 
       if (rows.length === 0) {
-        // Anti-enumeração: resposta genérica idêntica ao sucesso — não revela se o e-mail existe
-        return response.status(200).json({
-          sucesso: true,
-          message: "Se o e-mail existir, enviaremos um link",
+        return response.status(404).json({
+          sucesso: false,
+          message: "Nenhum usuário cadastrado com este e-mail",
           dados: null,
         });
       }
@@ -300,14 +301,15 @@ module.exports = {
         });
       }
 
+      const emailNormalizado = String(email).trim().toLowerCase();
       const codigoLimpo = String(codigo).trim();
 
       const [rows] = await db.query(
         `SELECT id, email, reset_token, reset_expira_em, reset_utilizado
          FROM usuarios
-         WHERE email = ? AND reset_codigo = ?
+         WHERE LOWER(email) = ? AND reset_codigo = ?
          LIMIT 1`,
-        [email, codigoLimpo]
+        [emailNormalizado, codigoLimpo]
       );
 
       if (rows.length === 0) {
