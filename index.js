@@ -33,10 +33,22 @@ if (process.env.TRUST_PROXY === "1") {
 // FRONTEND_URL aceita múltiplas origens separadas por vírgula (ex.:
 // "http://localhost:5173,http://localhost:5174"). As URLs são normalizadas
 // (trim + lower-case + sem barra final) para tolerar variações de digitação.
-const allowedOrigins = (process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',')
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://localhost:8080']
-).map(url => url.trim().toLowerCase().replace(/\/+$/, ''));
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'https://montesquad.caramellologistica.com',
+  'https://squad-hub-front.caramellologistica.com'
+];
+
+const rawOrigins = process.env.FRONTEND_URL
+  ? [...defaultOrigins, ...process.env.FRONTEND_URL.split(',')]
+  : defaultOrigins;
+
+const allowedOrigins = rawOrigins.map(url =>
+  String(url).trim().replace(/^['"]|['"]$/g, '').toLowerCase().replace(/\/+$/, '')
+);
 
 app.use(cors({
   origin: (origin, callback) => {
