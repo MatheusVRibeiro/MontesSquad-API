@@ -6,6 +6,7 @@
 // DELETE /projetos/:projetoId/vagas/:vagaId  (owner)       — bloqueia se preenchidas > 0 (409)
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { ehInteiroPositivo } = require("../utils/validators");
 
 const NIVEIS_DESEJADOS = ["iniciante", "intermediario", "avancado", "qualquer"];
 const STATUS_VAGA = ["aberta", "fechada"];
@@ -56,19 +57,19 @@ module.exports = {
           dados: null,
         });
       }
-      const funcaoIdNum = Number(funcao_id);
-      if (!Number.isInteger(funcaoIdNum) || funcaoIdNum <= 0) {
+      if (!ehInteiroPositivo(funcao_id)) {
         return response.status(400).json({
           sucesso: false,
           message: "funcao_id deve ser um número inteiro positivo",
           dados: null,
         });
       }
+      const funcaoIdNum = Number(funcao_id);
 
       const qtd = quantidade !== undefined && quantidade !== null && quantidade !== ""
         ? Number(quantidade)
         : 1;
-      if (!Number.isInteger(qtd) || qtd <= 0) {
+      if (!ehInteiroPositivo(qtd)) {
         return response.status(400).json({
           sucesso: false,
           message: "quantidade deve ser um número inteiro positivo",

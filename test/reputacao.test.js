@@ -4,14 +4,9 @@ import { buildApp, criarPoolFake, tokenPara } from "./helpers/bootstrap.js";
 
 const pool = criarPoolFake([
   {
-    // 1. Verifica se o usuário existe
-    match: (sql) => /^select id, nome from usuarios where id = \? limit 1$/.test(sql),
-    resposta: () => [[{ id: 2, nome: "Lucas" }], []],
-  },
-  {
-    // 2. Estatísticas — sem linha → defaults (level 1, xp 0, xpToNext 100)
-    match: (sql) => /^select nivel, xp, xp_para_proximo, projetos_concluidos from estatisticas_usuario where usuario_id = \? limit 1$/.test(sql),
-    resposta: () => [[], []],
+    // 1. Dados do usuário unificados com nível e xp
+    match: (sql) => /^select id, nome, nivel, xp, xp_para_proximo, projetos_concluidos from usuarios where id = \? limit 1$/.test(sql),
+    resposta: () => [[{ id: 2, nome: "Lucas", nivel: 1, xp: 0, xp_para_proximo: 100, projetos_concluidos: 0 }], []],
   },
   {
     // 3. Avaliações (rating)
@@ -78,7 +73,7 @@ describe("Reputação — GET /usuarios/me/reputacao", () => {
     // handler de usuarios retorna vazio quando o id não é 2
     const pool404 = criarPoolFake([
       {
-        match: (sql) => /^select id, nome from usuarios where id = \? limit 1$/.test(sql),
+        match: (sql) => /^select id, nome, nivel, xp, xp_para_proximo, projetos_concluidos from usuarios where id = \? limit 1$/.test(sql),
         resposta: () => [[], []],
       },
     ]);

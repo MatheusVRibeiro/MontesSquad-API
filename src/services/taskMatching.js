@@ -336,25 +336,41 @@ async function recomendarTasks(projetoId, usuarioId) {
 
   if (tarefasRows.length === 0) return [];
 
-  // 6. Habilidades das tasks candidatas (habilidades_tarefa → habilidades)
-  const tarefaIds = [...new Set(tarefasRows.map((linha) => Number(linha.id)))];
-  const [habilidadesTarefaRows] = await db.query(
-    `SELECT ht.tarefa_id AS tarefaId, ht.habilidade_id AS habilidadeId, h.nome
-     FROM habilidades_tarefa ht
-     INNER JOIN habilidades h ON h.id = ht.habilidade_id
-     WHERE ht.tarefa_id IN (?)`,
-    [tarefaIds]
-  );
+  // 6. Habilidades das tasks candidatas (suporta tarefas.habilidades JSON e habilidades_tarefa)
   const habilidadesPorTarefa = {};
-  for (const linha of habilidadesTarefaRows) {
-    // Chaves defensivas (técnica da ETAPA 16): o SELECT usa aliases
-    // camelCase (tarefaId/habilidadeId), mas o mock/DB pode entregar
-    // snake_case (tarefa_id/habilidade_id) — aceita ambos.
-    const tarefaId = linha.tarefaId !== undefined ? linha.tarefaId : linha.tarefa_id;
-    const habilidadeId = linha.habilidadeId !== undefined ? linha.habilidadeId : linha.habilidade_id;
-    const chave = String(tarefaId);
-    if (!habilidadesPorTarefa[chave]) habilidadesPorTarefa[chave] = [];
-    habilidadesPorTarefa[chave].push({ habilidadeId, nome: linha.nome });
+  for (const t of tarefasRows) {
+    let habs = [];
+    if (t.habilidades) {
+      try {
+        habs = typeof t.habilidades === "string" ? JSON.parse(t.habilidades) : t.habilidades;
+      } catch {
+        habs = [];
+      }
+    }
+    const chave = String(t.id);
+    if (Array.isArray(habs) && habs.length > 0) {
+      habilidadesPorTarefa[chave] = habs.map(h => ({ nome: typeof h === "string" ? h : h.nome }));
+    }
+  }
+
+  const tarefaIds = [...new Set(tarefasRows.map((linha) => Number(linha.id)))];
+  if (tarefaIds.length > 0) {
+    try {
+      const [habilidadesTarefaRows] = await db.query(
+        `SELECT ht.tarefa_id AS tarefaId, ht.habilidade_id AS habilidadeId, h.nome
+         FROM habilidades_tarefa ht
+         INNER JOIN habilidades h ON h.id = ht.habilidade_id
+         WHERE ht.tarefa_id IN (?)`,
+        [tarefaIds]
+      );
+      for (const linha of habilidadesTarefaRows) {
+        const tarefaId = linha.tarefaId !== undefined ? linha.tarefaId : linha.tarefa_id;
+        const habilidadeId = linha.habilidadeId !== undefined ? linha.habilidadeId : linha.habilidade_id;
+        const chave = String(tarefaId);
+        if (!habilidadesPorTarefa[chave]) habilidadesPorTarefa[chave] = [];
+        habilidadesPorTarefa[chave].push({ habilidadeId, nome: linha.nome });
+      }
+    } catch {}
   }
 
   // 7. Filtro em memória (defesa — espelha o WHERE do SQL para tolerar

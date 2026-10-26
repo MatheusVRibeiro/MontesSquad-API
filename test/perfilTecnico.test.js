@@ -20,6 +20,7 @@ function criarPoolComPerfil({
       disponibilidade_horas_semana: 20,
       objetivo_profissional: "Crescer como líder técnico",
       perfil_completo: 1,
+      funcoes_interesse: JSON.stringify([{ id: 1, nome: "Backend", nivel_interesse: "alto" }]),
     },
   ],
   habilidadesRows = [{ id: 1, nome: "Node.js", nivel: "avancado" }],
@@ -47,8 +48,8 @@ function criarPoolComPerfil({
     { match: (sql) => /^select count\(\*\) as total from habilidades_usuario where usuario_id = \?$/.test(sql), resposta: () => [[{ total: qtdHabilidades }], []] },
     // SELECT nome (PUT habilidades)
     { match: (sql) => /^select nome from usuarios where id = \? limit 1$/.test(sql), resposta: () => [[{ nome: "Lucas Mendes" }], []] },
-    // Upsert funcoes_usuario
-    { match: (sql) => /^insert into funcoes_usuario \(usuario_id, funcao_id, nivel_interesse\)/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
+    // Update funcoes_interesse
+    { match: (sql) => /^update usuarios set funcoes_interesse = \? where id = \?$/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
     // Upsert habilidades_usuario
     { match: (sql) => /^insert into habilidades_usuario \(usuario_id, habilidade_id, nivel\)/.test(sql), resposta: () => [{ affectedRows: 1 }, []] },
   ]);
@@ -203,11 +204,12 @@ describe("Perfil técnico completo (Evolução ETAPA 3)", () => {
       { funcao_id: 2, nivel_interesse: "baixo" },
     ]);
 
-    const inserts = pool.chamadas.filter((c) => /^insert into funcoes_usuario/.test(c.sql));
-    expect(inserts).toHaveLength(2);
-    expect(inserts[0].params).toEqual([1, 1, "alto"]);
-    expect(inserts[1].params).toEqual([1, 2, "baixo"]);
-    expect(inserts[0].sql).toContain("on duplicate key update nivel_interesse");
+    const updates = pool.chamadas.filter((c) => /^update usuarios set funcoes_interesse/.test(c.sql));
+    expect(updates).toHaveLength(1);
+    expect(JSON.parse(updates[0].params[0])).toEqual([
+      { id: 1, funcao_id: 1, nivel_interesse: "alto" },
+      { id: 2, funcao_id: 2, nivel_interesse: "baixo" },
+    ]);
   });
 
   it("PUT /usuarios/me/funcoes funcao_id inválido → 400", async () => {

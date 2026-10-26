@@ -11,7 +11,42 @@ INSERT INTO habilidades (nome) VALUES
 ('Node.js'), 
 ('React'), 
 ('Python'), 
-('Docker');
+('Docker'),
+('Next.js'),
+('Vue.js'),
+('Angular'),
+('TypeScript'),
+('JavaScript'),
+('HTML/CSS'),
+('Tailwind CSS'),
+('Java'),
+('C#'),
+('Go'),
+('PHP'),
+('Ruby'),
+('Rust'),
+('Spring Boot'),
+('.NET'),
+('Flutter'),
+('React Native'),
+('Kotlin'),
+('Swift'),
+('SQL'),
+('PostgreSQL'),
+('MySQL'),
+('MongoDB'),
+('Redis'),
+('Kubernetes'),
+('DevOps'),
+('AWS'),
+('Azure'),
+('GCP'),
+('Linux'),
+('CI/CD'),
+('UI/UX'),
+('Figma'),
+('QA'),
+('Scrum');
 
 -- 2b. Inserir Funções de Interesse (Evolução ETAPA 3)
 INSERT INTO funcoes (nome) VALUES 
@@ -40,11 +75,7 @@ INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel) VALUES
 (4, 4, 'iniciante');     -- Juliana sabe Docker
 
 -- 4b. Inserir Funções de Interesse dos Usuários (Evolução ETAPA 3)
-INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES 
-(1, 1, 'alto'),          -- Lucas: Backend
-(2, 8, 'alto'),          -- Fernanda: Data
-(3, 2, 'alto'),          -- Roberto: Frontend
-(4, 3, 'alto');          -- Juliana: Full Stack
+          -- Juliana: Full Stack
 
 -- 4c. Inserir Vagas dos Projetos (Evolução ETAPA 4 — papéis/vagas necessárias)
 INSERT INTO vagas_projeto (projeto_id, funcao_id, quantidade, preenchidas, descricao, nivel_desejado, status) VALUES 
@@ -122,12 +153,7 @@ INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, 
 (6, 1, NULL, 'Deploy em staging', 'Subir a primeira versão estável na nuvem.', 'todo', 'high', '2026-07-10', 'avancada');
 
 -- 13b. Habilidades das Tarefas (Evolução ETAPA 7)
-INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES
-(2, 1),
-(3, 1),
-(4, 2),
-(5, 1),
-(6, 4);
+
 
 -- 14. Inserir Subtarefas das Tarefas
 INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES
@@ -146,11 +172,6 @@ INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUE
 (4, 'task', 'Nova tarefa atribuída', 'Você recebeu uma nova tarefa no projeto App de Delivery Local', '/projetos/3', false),
 (1, 'message', 'Nova mensagem no projeto', 'Roberto Almeida: O banco de dados já está modelado?', '/projetos/1', false);
 
--- 16. Reputação Técnica (Evolução ETAPA 12 — score calculado pelo backend;
--- seed apenas ilustrativo para o ambiente de demonstração)
-INSERT INTO reputacao_tecnica_usuario (usuario_id, score, tasks_verificadas, prs_mergeados, commits_validos, projetos_com_entrega) VALUES
-(1, 105.00, 1, 1, 5, 1),
-(2, 50.00, 1, 0, 0, 1);
 
 -- 17. Timeline de atividade do projeto (Evolução ETAPA 15 — eventos de exemplo
 -- consistentes com o seed: Roberto é membro ATIVO do projeto 1 (candidatura

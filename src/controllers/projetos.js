@@ -400,13 +400,15 @@ module.exports = {
         );
 
         for (const t of tasks) {
-          const [subs] = await db.query(
-            "SELECT id, titulo AS title, concluida AS done FROM subtarefas WHERE tarefa_id = ?",
-            [t.id]
-          );
+          let subs = [];
+          if (typeof t.subtasks === "string") {
+            try { subs = JSON.parse(t.subtasks); } catch { subs = []; }
+          } else if (Array.isArray(t.subtasks)) {
+            subs = t.subtasks;
+          }
           t.subtasks = subs.map(s => ({
             id: String(s.id),
-            title: s.title,
+            title: s.title || s.titulo,
             done: !!s.done
           }));
           t.id = String(t.id);

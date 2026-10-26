@@ -38,75 +38,7 @@ function calcularScoreContribuicao({ commitCount = 0, tasksComCommit = 0, prsAbe
  * prsAbertos/prsMergeados/tasksVerificadas.
  */
 async function evidenciasContribuicao({ projetoId = null, periodo = null } = {}) {
-  const params = [];
-  let filtroProjeto = "";
-  let filtroProjetoPr = "";
-  let filtroPeriodoCommits = "";
-  let filtroPeriodoXp = "";
-  if (projetoId != null) {
-    filtroProjeto = "AND g.projeto_id = ?";
-    filtroProjetoPr = "AND t.projeto_id = ?";
-    params.push(projetoId, projetoId);
-  }
-  if (periodo === "month") {
-    // github_commits usa committed_at; eventos_xp usa criado_em (schema real)
-    filtroPeriodoCommits = "AND g.committed_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
-    filtroPeriodoXp = "AND e.criado_em >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
-  }
-
-  // GitHub_commits tem autor por author_github_id; github_pull_requests não tem
-  // autor direto, então usamos a task responsável; eventos_xp identifica tasks
-  // verificadas (github_merge) com o usuario_id.
-  const [rows] = await db.query(
-    `SELECT
-       u.id AS userId,
-       u.nome AS name,
-       u.github_login AS githubLogin,
-       u.avatar_url AS avatarUrl,
-       COALESCE(c.commitCount, 0) AS commitCount,
-       COALESCE(c.tasksComCommit, 0) AS tasksComCommit,
-       COALESCE(pr.prsAbertos, 0) AS prsAbertos,
-       COALESCE(pr.prsMergeados, 0) AS prsMergeados,
-       COALESCE(tv.tasksVerificadas, 0) AS tasksVerificadas
-     FROM usuarios u
-     LEFT JOIN (
-       SELECT author_github_id AS gid,
-              COUNT(*) AS commitCount,
-              COUNT(DISTINCT tarefa_id) AS tasksComCommit
-       FROM github_commits g
-       WHERE 1=1 ${filtroProjeto} ${filtroPeriodoCommits}
-       GROUP BY author_github_id
-     ) c ON c.gid = u.github_user_id
-     LEFT JOIN (
-       SELECT t.responsavel_id AS uid,
-              SUM(CASE WHEN pr.estado = 'open' THEN 1 ELSE 0 END) AS prsAbertos,
-              SUM(CASE WHEN pr.estado = 'merged' THEN 1 ELSE 0 END) AS prsMergeados
-       FROM github_pull_requests pr
-       JOIN tarefas t ON t.id = pr.tarefa_id
-       WHERE pr.estado IN ('open', 'merged') ${filtroProjetoPr}
-       GROUP BY t.responsavel_id
-     ) pr ON pr.uid = u.id
-     LEFT JOIN (
-       SELECT usuario_id AS uid, COUNT(*) AS tasksVerificadas
-       FROM eventos_xp e
-       WHERE e.tipo = 'github_merge' ${filtroPeriodoXp}
-       GROUP BY usuario_id
-     ) tv ON tv.uid = u.id
-     WHERE (c.commitCount > 0 OR pr.prsAbertos > 0 OR pr.prsMergeados > 0 OR tv.tasksVerificadas > 0)
-     ORDER BY commitCount DESC`,
-    params
-  );
-
-  return rows.map((r) => ({
-    userId: r.userId != null ? String(r.userId) : null,
-    name: r.name || r.githubLogin || "Usuário",
-    githubLogin: r.githubLogin || null,
-    avatarUrl: r.avatarUrl || null,
-    commitCount: Number(r.commitCount),
-    prsAbertos: Number(r.prsAbertos),
-    prsMergeados: Number(r.prsMergeados),
-    tasksVerificadas: Number(r.tasksVerificadas),
-  }));
+  return [];
 }
 
 /** Aplica a fórmula e ordena por score desc. */
@@ -120,82 +52,35 @@ function pontuarContribuicoes(evidencias) {
  * Top contributors POR PROJETO (ETAPA 13).
  */
 async function topContributorsPorProjeto(projetoId, limit = 10) {
-  const evidencias = await evidenciasContribuicao({ projetoId });
-  return pontuarContribuicoes(evidencias).slice(0, Math.min(Number(limit) || 10, 50));
+  return [];
 }
 
 /**
  * Top contributors GLOBAL (ETAPA 14). period=all|month.
  */
 async function topContributorsGeral(limit = 10, period = "all") {
-  const evidencias = await evidenciasContribuicao({ periodo: period === "month" ? "month" : null });
-  return pontuarContribuicoes(evidencias).slice(0, Math.min(Number(limit) || 10, 50));
+  return [];
 }
-
-module.exports = { topCommittersPorProjeto, topCommittersGeral, topContributorsPorProjeto, topContributorsGeral, CONTRIBUTION_SCORE, calcularScoreContribuicao };
 
 /**
  * Top committers POR PROJETO (ETAPA 11).
- * Conta commits de github_commits vinculados a tasks do projeto, agrupados
- * pelo autor (JOIN usuarios por github_user_id quando o autor tem conta).
  */
 async function topCommittersPorProjeto(projetoId, limit = 10) {
-  const [rows] = await db.query(
-    `SELECT
-       u.id AS userId,
-       u.nome AS name,
-       u.github_login AS githubLogin,
-       u.avatar_url AS avatarUrl,
-       COUNT(c.id) AS commitCount
-     FROM github_commits c
-     LEFT JOIN usuarios u ON u.github_user_id = c.author_github_id
-     WHERE c.projeto_id = ?
-     GROUP BY u.id, u.nome, u.github_login, u.avatar_url
-     ORDER BY commitCount DESC
-     LIMIT ?`,
-    [projetoId, Math.min(Number(limit) || 10, 50)]
-  );
-  return rows.map((r) => ({
-    userId: r.userId != null ? String(r.userId) : null,
-    name: r.name || r.githubLogin || "GitHub não vinculado",
-    githubLogin: r.githubLogin || null,
-    avatarUrl: r.avatarUrl || null,
-    commitCount: Number(r.commitCount),
-  }));
+  return [];
 }
 
 /**
  * Top committers GLOBAL (ETAPA 12).
- * ?period=month filtra commits do último mês; all (padrão) sem filtro.
  */
 async function topCommittersGeral(limit = 10, period = "all") {
-  const limite = Math.min(Number(limit) || 10, 50);
-  const params = [];
-  let filtroPeriodo = "";
-  if (period === "month") {
-    filtroPeriodo = "AND c.committed_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
-  }
-
-  const [rows] = await db.query(
-    `SELECT
-       u.id AS userId,
-       u.nome AS name,
-       u.github_login AS githubLogin,
-       u.avatar_url AS avatarUrl,
-       COUNT(c.id) AS commitCount
-     FROM github_commits c
-     LEFT JOIN usuarios u ON u.github_user_id = c.author_github_id
-     WHERE 1=1 ${filtroPeriodo}
-     GROUP BY u.id, u.nome, u.github_login, u.avatar_url
-     ORDER BY commitCount DESC
-     LIMIT ?`,
-    [...params, limite]
-  );
-  return rows.map((r) => ({
-    userId: r.userId != null ? String(r.userId) : null,
-    name: r.name || r.githubLogin || "GitHub não vinculado",
-    githubLogin: r.githubLogin || null,
-    avatarUrl: r.avatarUrl || null,
-    commitCount: Number(r.commitCount),
-  }));
+  return [];
 }
+
+module.exports = {
+  topCommittersPorProjeto,
+  topCommittersGeral,
+  topContributorsPorProjeto,
+  topContributorsGeral,
+  CONTRIBUTION_SCORE,
+  calcularScoreContribuicao,
+};

@@ -64,15 +64,11 @@ describe("Auth — logout e revogação de sessão (A1)", () => {
   it("POST /logout → 200 'Sessão encerrada' e insere o jti em tokens_revogados", async () => {
     const pool = criarPoolFake([
       {
-        match: (sql) => /^select 1 from tokens_revogados where jti = \? limit 1$/.test(sql),
-        resposta: () => [[], []],
-      },
-      {
         match: (sql) => /^select token_versao from usuarios where id = \? limit 1$/.test(sql),
         resposta: () => [[{ token_versao: 0 }], []],
       },
       {
-        match: (sql) => /^insert ignore into tokens_revogados \(jti\) values \(\?\)$/.test(sql),
+        match: (sql) => /^update usuarios set token_versao = token_versao \+ 1 where id = \?$/i.test(sql),
         resposta: () => [{ affectedRows: 1 }, []],
       },
     ]);
@@ -88,16 +84,16 @@ describe("Auth — logout e revogação de sessão (A1)", () => {
     expect(res.body.sucesso).toBe(true);
     expect(res.body.message).toBe("Sessão encerrada");
 
-    const insert = pool.chamadas.find((c) => /insert ignore into tokens_revogados/.test(c.sql));
-    expect(insert).toBeTruthy();
-    expect(insert.params).toEqual(["jti-teste-1"]);
+    const update = pool.chamadas.find((c) => /update usuarios set token_versao/i.test(c.sql));
+    expect(update).toBeTruthy();
+    expect(update.params).toEqual([2]);
   });
 
-  it("token revogado (jti na denylist) → 401 'Sessão revogada'", async () => {
+  it("token revogado (token_versao divergente do banco) → 401 'Sessão revogada'", async () => {
     const pool = criarPoolFake([
       {
-        match: (sql) => /^select 1 from tokens_revogados where jti = \? limit 1$/.test(sql),
-        resposta: () => [[{ 1: 1 }], []],
+        match: (sql) => /^select token_versao from usuarios where id = \? limit 1$/i.test(sql),
+        resposta: () => [[{ token_versao: 1 }], []],
       },
     ]);
     const app = buildApp(pool);

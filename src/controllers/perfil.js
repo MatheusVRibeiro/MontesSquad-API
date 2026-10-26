@@ -9,6 +9,7 @@
 // Regra perfil_completo: nome preenchido E pelo menos 1 habilidade cadastrada.
 const db = require("../database/connection");
 const AppError = require("../utils/errors");
+const { ehInteiroPositivo } = require("../utils/validators");
 
 const NIVEIS_INTERESSE = ["baixo", "medio", "alto"];
 const NIVEIS_HABILIDADE = ["iniciante", "intermediario", "avancado"];
@@ -17,10 +18,6 @@ const CAMPOS_USUARIO_PERFIL = `
   id, nome, email, bio, localizacao, avatar_url, tipo,
   disponibilidade_horas_semana, objetivo_profissional, perfil_completo
 `;
-
-function ehInteiroPositivo(valor) {
-  return Number.isInteger(valor) && valor > 0;
-}
 
 module.exports = {
   // GET /funcoes — lista as funções cadastradas (logado)
@@ -65,14 +62,18 @@ module.exports = {
         [usuarioId]
       );
 
-      const [funcoes] = await db.query(
-        `SELECT f.id, f.nome, fu.nivel_interesse
-         FROM funcoes_usuario fu
-         INNER JOIN funcoes f ON f.id = fu.funcao_id
-         WHERE fu.usuario_id = ?
-         ORDER BY f.nome`,
-        [usuarioId]
-      );
+      // Funções de interesse do usuário armazenadas em usuarios.funcoes_interesse (JSON)
+      let funcoes = [];
+      if (userRows[0] && userRows[0].funcoes_interesse) {
+        try {
+          const raw = typeof userRows[0].funcoes_interesse === "string"
+            ? JSON.parse(userRows[0].funcoes_interesse)
+            : userRows[0].funcoes_interesse;
+          funcoes = Array.isArray(raw) ? raw : [];
+        } catch {
+          funcoes = [];
+        }
+      }
 
       return response.status(200).json({
         sucesso: true,
@@ -220,24 +221,16 @@ module.exports = {
         validados.push([usuarioId, funcaoId, nivelInteresse]);
       }
 
-      const conn = await db.getConnection();
-      try {
-        await conn.beginTransaction();
-        for (const [uid, funcaoId, nivelInteresse] of validados) {
-          await conn.query(
-            `INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse)
-             VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE nivel_interesse = VALUES(nivel_interesse)`,
-            [uid, funcaoId, nivelInteresse]
-          );
-        }
-        await conn.commit();
-      } catch (error) {
-        await conn.rollback();
-        throw error;
-      } finally {
-        conn.release();
-      }
+      const funcoesSalvar = validados.map(([, funcaoId, nivelInteresse]) => ({
+        id: funcaoId,
+        funcao_id: funcaoId,
+        nivel_interesse: nivelInteresse,
+      }));
+
+      await db.query(
+        "UPDATE usuarios SET funcoes_interesse = ? WHERE id = ?",
+        [JSON.stringify(funcoesSalvar), usuarioId]
+      );
 
       return response.status(200).json({
         sucesso: true,
