@@ -119,7 +119,7 @@ module.exports = {
           tipo: "application",
           titulo: "Nova candidatura",
           descricao: `${request.usuarioAutenticado.nome || "Um usuário"} quer entrar no projeto`,
-          link: `/projetos/${projetoId}`,
+          link: `/projetos/${projetoId}?tab=equipe&subtab=candidaturas`,
         });
       }
 
