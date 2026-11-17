@@ -47,6 +47,7 @@ router.put("/usuarios/me/habilidades", verificarToken, perfilController.atualiza
 // Notificações
 router.get("/notificacoes", verificarToken, notificacoesController.listarNotificacoes);
 router.post("/notificacoes/ler-tudo", verificarToken, notificacoesController.marcarTodasLidas);
+router.patch("/notificacoes/:id/ler", verificarToken, notificacoesController.marcarComoLida);
 
 // Reputação e Portfólio
 router.get("/usuarios/:id/reputacao", verificarToken, reputacaoController.obterReputacao);

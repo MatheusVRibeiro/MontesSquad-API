@@ -91,4 +91,27 @@ module.exports = {
       return next(new AppError("Erro ao marcar notificações como lidas", 500, error));
     }
   },
+
+  async marcarComoLida(request, response, next) {
+    try {
+      const usuarioId = request.usuarioAutenticado.id;
+      const { id } = request.params;
+
+      const sql = `
+        UPDATE notificacoes
+        SET lida = TRUE
+        WHERE id = ? AND usuario_id = ?;
+      `;
+
+      await db.query(sql, [id, usuarioId]);
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Notificação marcada como lida",
+        dados: null,
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao marcar notificação como lida", 500, error));
+    }
+  },
 };
