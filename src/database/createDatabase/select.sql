@@ -1,41 +1,37 @@
--- Usuarios
+-- 1. Usuários e Autenticação
 SELECT * FROM usuarios;
+SELECT * FROM tokens_revogados;
+SELECT * FROM codigos_recuperacao;
 
--- Habilidades
+-- 2. Habilidades e Funções
 SELECT * FROM habilidades;
-
--- Projetos
-SELECT * FROM projetos;
-
--- Habilidades_Usuario
+SELECT * FROM funcoes;
 SELECT * FROM habilidades_usuario;
+SELECT * FROM funcoes_usuario;
 
--- Habilidades_Projeto
+-- 3. Projetos, Vagas, Candidaturas e Membros
+SELECT * FROM projetos;
 SELECT * FROM habilidades_projeto;
-
--- Candidaturas
+SELECT * FROM vagas_projeto;
 SELECT * FROM candidaturas;
-
--- Membros_Equipe
 SELECT * FROM membros_equipe;
 
--- Avaliacoes
+-- 4. Interações, Avaliações e Reputação
 SELECT * FROM avaliacoes;
-
--- Mensagens
 SELECT * FROM mensagens;
-
--- Estatisticas_Usuario
-SELECT * FROM estatisticas_usuario;
-
--- Tarefas (Kanban)
-SELECT * FROM tarefas;
-
--- Subtarefas (Checklist)
-SELECT * FROM subtarefas;
-
--- Conquistas (Achievements)
+SELECT * FROM reputacao_tecnica_usuario;
 SELECT * FROM conquistas;
-
--- Conquistas_Usuario
 SELECT * FROM conquistas_usuario;
+SELECT * FROM notificacoes;
+
+-- 5. Tarefas (Kanban), Histórico e Eventos
+SELECT * FROM tarefas;
+SELECT * FROM habilidades_tarefa;
+SELECT * FROM historico_responsaveis_tarefa;
+SELECT * FROM eventos_xp;
+SELECT * FROM eventos_projeto;
+
+-- 6. Integração GitHub
+SELECT * FROM github_commits;
+SELECT * FROM github_pull_requests;
+SELECT * FROM github_webhook_deliveries;

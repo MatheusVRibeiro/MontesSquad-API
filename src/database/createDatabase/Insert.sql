@@ -1,10 +1,13 @@
--- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10; senha_definida=1 pois são contas locais com senha utilizável)
-INSERT INTO usuarios (nome, email, senha, bio, localizacao, avatar_url, tipo, senha_definida) VALUES 
-('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro', 1),
-('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro', 1),
-('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro', 1),
-('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro', 1),
-('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm', 1);
+-- 1. Inserir Usuários (senhas armazenadas como hash bcrypt — custo 10; estatísticas e funções de interesse consolidadas na própria tabela usuarios)
+INSERT INTO usuarios (
+    nome, email, senha, bio, localizacao, avatar_url, tipo, senha_definida,
+    media_notas, total_avaliacoes, projetos_concluidos, nivel, xp, xp_para_proximo, funcoes_interesse
+) VALUES 
+('Lucas Mendes', 'lucas@email.com', '$2b$10$mQiwd9HjKNJ0Tk0ZpGdTKuSxibJXPMscGOKWKpLsDhEeF8eq51SXG', 'Dev Backend focado em APIs.', 'São Paulo, SP', NULL, 'membro', 1, 4.00, 1, 1, 4, 620, 1000, JSON_ARRAY(JSON_OBJECT('id', 1, 'funcao_id', 1, 'nivel_interesse', 'alto'))),
+('Fernanda Costa', 'fernanda@email.com', '$2b$10$LwVpuHzAtesBSnfar6XrAu7pFsl.TYfKUGmpPyOVToyyCbsaKlfIG', 'Engenheira de Dados apaixonada por cloud.', 'Rio de Janeiro, RJ', NULL, 'membro', 1, 5.00, 1, 0, 2, 150, 500, JSON_ARRAY(JSON_OBJECT('id', 8, 'funcao_id', 8, 'nivel_interesse', 'alto'))),
+('Roberto Almeida', 'roberto@email.com', '$2b$10$2FsrKJyELzOfwTwdcl6ZJeq7cKLwbuepEKlbFCZxds89FYuWaSlaO', 'Desenvolvedor Frontend e UI Designer.', 'Curitiba, PR', NULL, 'membro', 1, 5.00, 1, 1, 3, 300, 750, JSON_ARRAY(JSON_OBJECT('id', 2, 'funcao_id', 2, 'nivel_interesse', 'alto'))),
+('Juliana Silva', 'juliana@email.com', '$2b$10$HAP4ap.kcZ3pmIFVkUmJs.NMR53Ust0cl6vzSE33YE7njy1T9eoLe', 'Fullstack Developer com foco em startups.', 'Belo Horizonte, MG', NULL, 'membro', 1, 5.00, 1, 0, 1, 100, 250, JSON_ARRAY(JSON_OBJECT('id', 3, 'funcao_id', 3, 'nivel_interesse', 'alto'))),
+('Admin MontesSquad', 'admin@email.com', '$2b$10$abQLUJ/X91xIean1/z6z4.rPB453JpCmME.4Srcqo2cNl/5SNe6Sa', 'Administrador global do MontesSquad.', 'São Paulo, SP', NULL, 'adm', 1, 5.00, 0, 0, 1, 0, 250, NULL);
 
 -- 2. Inserir Habilidades
 INSERT INTO habilidades (nome) VALUES 
@@ -75,7 +78,11 @@ INSERT INTO habilidades_usuario (usuario_id, habilidade_id, nivel) VALUES
 (4, 4, 'iniciante');     -- Juliana sabe Docker
 
 -- 4b. Inserir Funções de Interesse dos Usuários (Evolução ETAPA 3)
-          -- Juliana: Full Stack
+INSERT INTO funcoes_usuario (usuario_id, funcao_id, nivel_interesse) VALUES 
+(1, 1, 'alto'),          -- Lucas: Backend
+(2, 8, 'alto'),          -- Fernanda: Data
+(3, 2, 'alto'),          -- Roberto: Frontend
+(4, 3, 'alto');          -- Juliana: Full Stack
 
 -- 4c. Inserir Vagas dos Projetos (Evolução ETAPA 4 — papéis/vagas necessárias)
 INSERT INTO vagas_projeto (projeto_id, funcao_id, quantidade, preenchidas, descricao, nivel_desejado, status) VALUES 
@@ -100,10 +107,10 @@ INSERT INTO candidaturas (usuario_id, projeto_id, vaga_id, status, mensagem) VAL
 
 -- 7. Inserir Membros nas Equipes (Evolução ETAPA 6 — vaga_id/funcao_id/status/saiu_em)
 INSERT INTO membros_equipe (usuario_id, projeto_id, funcao, vaga_id, funcao_id, status) VALUES
-(1, 1, 'Líder Técnico', NULL, NULL, 'ativo'),
-(3, 1, 'Dev Frontend', NULL, NULL, 'ativo'),
-(2, 2, 'Engenheira de Dados', NULL, NULL, 'ativo'),
-(4, 2, 'DevOps', NULL, NULL, 'ativo');
+(1, 1, 'Líder Técnico', NULL, 1, 'ativo'),
+(3, 1, 'Dev Frontend', 2, 3, 'ativo'),
+(2, 2, 'Engenheira de Dados', NULL, 8, 'ativo'),
+(4, 2, 'DevOps', 3, 6, 'ativo');
 
 -- 8. Inserir Avaliações
 INSERT INTO avaliacoes (avaliador_id, avaliado_id, projeto_id, nota, comentario) VALUES 
@@ -119,13 +126,13 @@ INSERT INTO mensagens (remetente_id, projeto_id, destinatario_id, conteudo) VALU
 (3, 2, NULL, 'Time do dashboard, a integração já está rodando.'),
 (4, 2, NULL, 'Equipe, os containers do Docker já estão na nuvem.');
 
--- 10. Inserir Estatísticas Consolidadas
-INSERT INTO estatisticas_usuario (usuario_id, media_notas, total_avaliacoes, projetos_concluidos, nivel, xp, xp_para_proximo) VALUES 
-(1, 4.00, 1, 1, 4, 620, 1000),
-(2, 5.00, 1, 0, 2, 150, 500),
-(3, 5.00, 1, 1, 3, 300, 750),
-(4, 5.00, 1, 0, 1, 100, 250),
-(5, 5.00, 0, 0, 1, 0, 250);
+-- 10. Inserir Reputação Técnica Consolidada
+INSERT INTO reputacao_tecnica_usuario (usuario_id, score, tasks_verificadas, prs_mergeados, commits_validos, projetos_com_entrega) VALUES 
+(1, 45.00, 1, 1, 3, 1),
+(2, 20.00, 0, 0, 1, 1),
+(3, 35.00, 1, 1, 2, 1),
+(4, 15.00, 0, 0, 1, 1),
+(5, 0.00, 0, 0, 0, 0);
 
 -- 11. Inserir Conquistas Padrão
 INSERT INTO conquistas (id, titulo, descricao, icone) VALUES
@@ -143,26 +150,79 @@ INSERT INTO conquistas_usuario (usuario_id, conquista_id) VALUES
 (3, 1), (3, 5),
 (4, 1), (4, 6);
 
--- 13. Inserir Tarefas do Kanban
-INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento, dificuldade) VALUES
-(1, 1, 1, 'Definir escopo do MVP', 'Mapear as features essenciais do projeto para o lançamento inicial.', 'done', 'high', '2026-06-15', 'iniciante'),
-(2, 1, NULL, 'Configurar repositório e CI', 'Configurar o GitHub Actions e ambiente local.', 'done', 'medium', '2026-06-18', 'intermediaria'),
-(3, 1, 3, 'Modelar banco de dados', 'Desenhar o diagrama de entidades e criar o script SQL.', 'doing', 'high', '2026-06-25', 'avancada'),
-(4, 1, NULL, 'Tela de listagem de projetos', 'Criar os componentes do feed de projetos do front-end.', 'doing', 'medium', '2026-06-30', 'intermediaria'),
-(5, 1, NULL, 'Sistema de candidaturas', 'Implementar modal e formulário de inscrição rápido.', 'todo', 'low', '2026-07-05', 'intermediaria'),
-(6, 1, NULL, 'Deploy em staging', 'Subir a primeira versão estável na nuvem.', 'todo', 'high', '2026-07-10', 'avancada');
+-- 13. Inserir Tarefas do Kanban (com habilidades e subtasks em JSON, alinhado ao schema atual)
+INSERT INTO tarefas (id, projeto_id, responsavel_id, titulo, descricao, status, prioridade, data_vencimento, dificuldade, habilidades, subtasks) VALUES
+(
+    1, 1, 1,
+    'Definir escopo do MVP',
+    'Mapear as features essenciais do projeto para o lançamento inicial.',
+    'done', 'high', '2026-06-15', 'iniciante',
+    JSON_ARRAY(),
+    JSON_ARRAY(
+        JSON_OBJECT('id', 'sub-1', 'title', 'Criar documento de requisitos', 'done', true),
+        JSON_OBJECT('id', 'sub-2', 'title', 'Validar com stakeholders', 'done', true)
+    )
+),
+(
+    2, 1, NULL,
+    'Configurar repositório e CI',
+    'Configurar o GitHub Actions e ambiente local.',
+    'done', 'medium', '2026-06-18', 'intermediaria',
+    JSON_ARRAY('Node.js'),
+    JSON_ARRAY()
+),
+(
+    3, 1, 3,
+    'Modelar banco de dados',
+    'Desenhar o diagrama de entidades e criar o script SQL.',
+    'doing', 'high', '2026-06-25', 'avancada',
+    JSON_ARRAY('Node.js'),
+    JSON_ARRAY(
+        JSON_OBJECT('id', 'sub-1', 'title', 'Criar tabelas no MySQL', 'done', true),
+        JSON_OBJECT('id', 'sub-2', 'title', 'Popular banco com seed inicial', 'done', false)
+    )
+),
+(
+    4, 1, NULL,
+    'Tela de listagem de projetos',
+    'Criar os componentes do feed de projetos do front-end.',
+    'doing', 'medium', '2026-06-30', 'intermediaria',
+    JSON_ARRAY('React'),
+    JSON_ARRAY(
+        JSON_OBJECT('id', 'sub-1', 'title', 'Fazer mock da API', 'done', true),
+        JSON_OBJECT('id', 'sub-2', 'title', 'Integrar com Tailwind CSS', 'done', false)
+    )
+),
+(
+    5, 1, NULL,
+    'Sistema de candidaturas',
+    'Implementar modal e formulário de inscrição rápido.',
+    'todo', 'low', '2026-07-05', 'intermediaria',
+    JSON_ARRAY('Node.js'),
+    JSON_ARRAY()
+),
+(
+    6, 1, NULL,
+    'Deploy em staging',
+    'Subir a primeira versão estável na nuvem.',
+    'todo', 'high', '2026-07-10', 'avancada',
+    JSON_ARRAY('Docker'),
+    JSON_ARRAY()
+);
 
 -- 13b. Habilidades das Tarefas (Evolução ETAPA 7)
+INSERT INTO habilidades_tarefa (tarefa_id, habilidade_id) VALUES
+(2, 1),
+(3, 1),
+(4, 2),
+(5, 1),
+(6, 4);
 
-
--- 14. Inserir Subtarefas das Tarefas
-INSERT INTO subtarefas (tarefa_id, titulo, concluida) VALUES
-(1, 'Criar documento de requisitos', true),
-(1, 'Validar com stakeholders', true),
-(3, 'Criar tabelas no MySQL', true),
-(3, 'Popular banco com seed inicial', false),
-(4, 'Fazer mock da API', true),
-(4, 'Integrar com Tailwind CSS', false);
+-- 14. Histórico de Responsáveis das Tarefas (Evolução ETAPA 9)
+INSERT INTO historico_responsaveis_tarefa (tarefa_id, usuario_id, acao, realizado_por) VALUES
+(1, 1, 'assumiu', 1),
+(1, 1, 'concluiu', 1),
+(3, 3, 'assumiu', 3);
 
 -- 15. Inserir Notificações (seed de exemplo)
 INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUES
@@ -172,8 +232,7 @@ INSERT INTO notificacoes (usuario_id, tipo, titulo, descricao, link, lida) VALUE
 (4, 'task', 'Nova tarefa atribuída', 'Você recebeu uma nova tarefa no projeto App de Delivery Local', '/projetos/3', false),
 (1, 'message', 'Nova mensagem no projeto', 'Roberto Almeida: O banco de dados já está modelado?', '/projetos/1', false);
 
-
--- 17. Timeline de atividade do projeto (Evolução ETAPA 15 — eventos de exemplo
+-- 16. Timeline de atividade do projeto (Evolução ETAPA 15 — eventos de exemplo
 -- consistentes com o seed: Roberto é membro ATIVO do projeto 1 (candidatura
 -- aceita), Fernanda é membro ATIVO do projeto 2; a tarefa 3 pertence ao projeto 1)
 INSERT INTO eventos_projeto (projeto_id, usuario_id, tipo, entidade_tipo, entidade_id, titulo, metadados) VALUES
