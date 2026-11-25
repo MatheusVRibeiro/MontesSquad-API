@@ -53,14 +53,15 @@ module.exports = {
       );
 
       if (candidaturaExist.length > 0) {
-        const c = candidaturaExist[0];
-        if (c.status === "pendente") {
+        const temPendente = candidaturaExist.some((c) => c.status === "pendente");
+        const temAceito = candidaturaExist.some((c) => c.status === "aceito");
+        if (temPendente) {
           return response.status(409).json({
             sucesso: false,
             message: "Você já possui uma candidatura pendente para este projeto",
             dados: null,
           });
-        } else if (c.status === "aceito") {
+        } else if (temAceito) {
           return response.status(400).json({
             sucesso: false,
             message: "Você já é membro deste projeto",
@@ -114,11 +115,18 @@ module.exports = {
 
       // Notifica o dono do projeto sobre a nova candidatura
       if (projetoExist[0].criador_id !== usuarioId) {
+        let nomeCandidato = request.usuarioAutenticado.nome;
+        if (!nomeCandidato) {
+          try {
+            const [uRows] = await db.query("SELECT nome FROM usuarios WHERE id = ? LIMIT 1", [usuarioId]);
+            nomeCandidato = uRows[0]?.nome;
+          } catch {}
+        }
         await criarNotificacao(db, {
           usuario_id: projetoExist[0].criador_id,
           tipo: "application",
           titulo: "Nova candidatura",
-          descricao: `${request.usuarioAutenticado.nome || "Um usuário"} quer entrar no projeto`,
+          descricao: `${nomeCandidato || "Um usuário"} quer entrar no projeto`,
           link: `/projetos/${projetoId}?tab=equipe&subtab=candidaturas`,
         });
       }
@@ -313,13 +321,21 @@ module.exports = {
         connection.release();
         connection = null;
 
-        // Notifica o candidato quando a candidatura é aprovada
+        // Notifica o candidato quando a candidatura é aprovada ou recusada
         if (status === "aceito") {
           await criarNotificacao(db, {
             usuario_id: candidatura.usuario_id,
             tipo: "approved",
             titulo: "Candidatura aprovada",
             descricao: "Sua candidatura foi aprovada",
+            link: `/projetos/${projetoId}`,
+          });
+        } else if (status === "rejeitado") {
+          await criarNotificacao(db, {
+            usuario_id: candidatura.usuario_id,
+            tipo: "system",
+            titulo: "Candidatura recusada",
+            descricao: "Sua candidatura para o projeto foi recusada",
             link: `/projetos/${projetoId}`,
           });
         }
@@ -364,5 +380,59 @@ module.exports = {
         return next(new AppError("Erro ao processar candidatura", 500, error));
       }
     },
+
+  async cancelarCandidatura(request, response, next) {
+    try {
+      const { projetoId, candidaturaId } = request.params;
+      const usuarioId = request.usuarioAutenticado.id;
+
+      let candRows;
+      if (candidaturaId && candidaturaId !== "minha") {
+        [candRows] = await db.query(
+          "SELECT id, status FROM candidaturas WHERE id = ? AND projeto_id = ? AND usuario_id = ? LIMIT 1",
+          [candidaturaId, projetoId, usuarioId]
+        );
+      } else {
+        [candRows] = await db.query(
+          "SELECT id, status FROM candidaturas WHERE projeto_id = ? AND usuario_id = ? AND status = 'pendente' ORDER BY id DESC LIMIT 1",
+          [projetoId, usuarioId]
+        );
+      }
+
+      if (!candRows || candRows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Nenhuma candidatura pendente encontrada para cancelar",
+          dados: null,
+        });
+      }
+
+      const candidatura = candRows[0];
+      if (candidatura.status !== "pendente") {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Apenas candidaturas pendentes podem ser canceladas",
+          dados: null,
+        });
+      }
+
+      await db.query(
+        "DELETE FROM candidaturas WHERE id = ? AND usuario_id = ? AND status = 'pendente'",
+        [candidatura.id, usuarioId]
+      );
+
+      return response.status(200).json({
+        sucesso: true,
+        message: "Candidatura cancelada com sucesso",
+        dados: {
+          id: candidatura.id,
+          projeto_id: projetoId,
+          status: "cancelado",
+        },
+      });
+    } catch (error) {
+      return next(new AppError("Erro ao cancelar candidatura", 500, error));
+    }
+  },
 };
 

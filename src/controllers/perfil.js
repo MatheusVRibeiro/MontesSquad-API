@@ -202,15 +202,37 @@ module.exports = {
       if (!Array.isArray(funcoes)) {
         return response.status(400).json({
           sucesso: false,
-          message: "funcoes deve ser um array de {funcao_id, nivel_interesse}",
+          message: "funcoes deve ser um array de {funcao_id/nome, nivel_interesse}",
           dados: null,
         });
       }
 
+      // Se houver algum item com nome em vez de funcao_id, busca tabela de funções para resolução
+      let mapaFuncoesPorNome = null;
+      const precisaMapearNome = funcoes.some((item) => item && !ehInteiroPositivo(item.funcao_id ?? item.id) && typeof item.nome === "string");
+      if (precisaMapearNome) {
+        try {
+          const [todasFuncoes] = await db.query("SELECT id, LOWER(TRIM(nome)) as nome_norm FROM funcoes");
+          mapaFuncoesPorNome = new Map();
+          todasFuncoes.forEach((f) => {
+            mapaFuncoesPorNome.set(f.nome_norm, Number(f.id));
+          });
+        } catch {
+          mapaFuncoesPorNome = null;
+        }
+      }
+
       const validados = [];
       for (const item of funcoes) {
-        const funcaoId = item && item.funcao_id;
-        const nivelInteresse = item && item.nivel_interesse;
+        if (!item || typeof item !== "object") continue;
+        let funcaoId = item.funcao_id ?? item.id;
+        const nome = typeof item.nome === "string" ? item.nome.toLowerCase().trim() : null;
+
+        if (!ehInteiroPositivo(funcaoId) && nome && mapaFuncoesPorNome && mapaFuncoesPorNome.has(nome)) {
+          funcaoId = mapaFuncoesPorNome.get(nome);
+        }
+
+        const nivelInteresse = item.nivel_interesse;
         if (!ehInteiroPositivo(funcaoId) || !NIVEIS_INTERESSE.includes(nivelInteresse)) {
           return response.status(400).json({
             sucesso: false,
@@ -218,7 +240,7 @@ module.exports = {
             dados: null,
           });
         }
-        validados.push([usuarioId, funcaoId, nivelInteresse]);
+        validados.push([usuarioId, Number(funcaoId), nivelInteresse]);
       }
 
       const funcoesSalvar = validados.map(([, funcaoId, nivelInteresse]) => ({
@@ -253,15 +275,37 @@ module.exports = {
       if (!Array.isArray(habilidades)) {
         return response.status(400).json({
           sucesso: false,
-          message: "habilidades deve ser um array de {habilidade_id, nivel}",
+          message: "habilidades deve ser um array de {habilidade_id/nome, nivel}",
           dados: null,
         });
       }
 
+      // Se houver algum item com nome em vez de habilidade_id, busca tabela de habilidades para resolução
+      let mapaHabilidadesPorNome = null;
+      const precisaMapearNome = habilidades.some((item) => item && !ehInteiroPositivo(item.habilidade_id ?? item.id) && typeof item.nome === "string");
+      if (precisaMapearNome) {
+        try {
+          const [todasHabilidades] = await db.query("SELECT id, LOWER(TRIM(nome)) as nome_norm FROM habilidades");
+          mapaHabilidadesPorNome = new Map();
+          todasHabilidades.forEach((h) => {
+            mapaHabilidadesPorNome.set(h.nome_norm, Number(h.id));
+          });
+        } catch {
+          mapaHabilidadesPorNome = null;
+        }
+      }
+
       const validados = [];
       for (const item of habilidades) {
-        const habilidadeId = item && item.habilidade_id;
-        const nivel = item && item.nivel;
+        if (!item || typeof item !== "object") continue;
+        let habilidadeId = item.habilidade_id ?? item.id;
+        const nome = typeof item.nome === "string" ? item.nome.toLowerCase().trim() : null;
+
+        if (!ehInteiroPositivo(habilidadeId) && nome && mapaHabilidadesPorNome && mapaHabilidadesPorNome.has(nome)) {
+          habilidadeId = mapaHabilidadesPorNome.get(nome);
+        }
+
+        const nivel = item.nivel;
         if (!ehInteiroPositivo(habilidadeId) || !NIVEIS_HABILIDADE.includes(nivel)) {
           return response.status(400).json({
             sucesso: false,
@@ -269,7 +313,7 @@ module.exports = {
             dados: null,
           });
         }
-        validados.push([usuarioId, habilidadeId, nivel]);
+        validados.push([usuarioId, Number(habilidadeId), nivel]);
       }
 
       const conn = await db.getConnection();

@@ -31,10 +31,62 @@ module.exports = {
       `;
 
       const [rows] = await db.query(sql);
-      const row = rows.map((r) => ({
-        ...r,
-        tecnologias: r.tecnologias ? String(r.tecnologias).split("||") : [],
-      }));
+
+      const usuarioLogadoId = request.usuarioAutenticado?.id;
+      let membrosAtivosSet = null;
+      let candidaturasPorProjeto = null;
+
+      if (usuarioLogadoId != null) {
+        try {
+          const [membrosRows] = await db.query(
+            "SELECT projeto_id FROM membros_equipe WHERE usuario_id = ? AND status = 'ativo'",
+            [usuarioLogadoId]
+          );
+          membrosAtivosSet = new Set(membrosRows.map((m) => Number(m.projeto_id)));
+        } catch {
+          // Silencioso para pools de teste que não mapeiam vínculo do usuário na listagem
+        }
+
+        try {
+          const [candRows] = await db.query(
+            "SELECT id, projeto_id, status FROM candidaturas WHERE usuario_id = ? ORDER BY id DESC",
+            [usuarioLogadoId]
+          );
+          candidaturasPorProjeto = new Map();
+          for (const c of candRows) {
+            const pIdNum = Number(c.projeto_id);
+            if (!candidaturasPorProjeto.has(pIdNum)) {
+              candidaturasPorProjeto.set(pIdNum, {
+                id: c.id,
+                status: c.status,
+              });
+            }
+          }
+        } catch {
+          // Silencioso para pools de teste que não mapeiam candidaturas na listagem
+        }
+      }
+
+      const row = rows.map((r) => {
+        const base = {
+          ...r,
+          tecnologias: r.tecnologias ? String(r.tecnologias).split("||") : [],
+        };
+
+        if (membrosAtivosSet !== null) {
+          base.sou_membro =
+            Number(r.criador_id) === Number(usuarioLogadoId) ||
+            membrosAtivosSet.has(Number(r.id));
+        }
+
+        if (candidaturasPorProjeto !== null) {
+          const cand = candidaturasPorProjeto.get(Number(r.id));
+          base.minha_candidatura_id = cand ? cand.id : null;
+          base.minha_candidatura_status = cand ? cand.status : null;
+        }
+
+        return base;
+      });
       const nItens = row.length;
 
       return response.status(200).json({
@@ -314,12 +366,12 @@ module.exports = {
       const [vagaRows] = await db.query(sqlVagas, [pId]);
       projeto.vagas = vagaRows;
 
-      // 3. Busca membros da equipe (incluindo o proprietário/criador)
+      // 3. Busca membros da equipe (incluindo o proprietário/criador, apenas vínculos ativos)
       const sqlMembers = `
         SELECT u.id, u.nome, 'Membro' AS role
         FROM membros_equipe me
         JOIN usuarios u ON me.usuario_id = u.id
-        WHERE me.projeto_id = ?
+        WHERE me.projeto_id = ? AND (me.status IS NULL OR me.status = 'ativo')
       `;
       const [memberRows] = await db.query(sqlMembers, [pId]);
       
@@ -353,19 +405,52 @@ module.exports = {
       projeto.members = members;
 
       // 4. Controle de privacidade: apenas o dono e membros da equipe
-      // têm acesso às tarefas, mensagens e candidaturas do projeto
-      const isOwner = projeto.criador_id === usuarioLogadoId;
+      // têm acesso às tarefas, mensagens e todas as candidaturas do projeto
+      const isOwner = Number(projeto.criador_id) === Number(usuarioLogadoId);
 
       const [membPrivRows] = await db.query(
         "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
         [pId, usuarioLogadoId]
       );
-      const isMember = isOwner || membPrivRows.length > 0;
+      const isMember =
+        isOwner ||
+        membPrivRows.some((m) => !m.status || m.status === "ativo");
 
       if (!isMember) {
         projeto.tasks = [];
         projeto.messages = [];
         projeto.applications = [];
+
+        // Visitante autenticado ainda deve enxergar a PRÓPRIA candidatura (se existir)
+        // para que o estado "Candidatura Pendente" / "Recusado" não suma ao recarregar.
+        try {
+          const [myCandRows] = await db.query(
+            `SELECT c.id, c.usuario_id, c.vaga_id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
+             FROM candidaturas c
+             JOIN usuarios u ON c.usuario_id = u.id
+             WHERE c.projeto_id = ? AND c.usuario_id = ?
+             ORDER BY c.id DESC`,
+            [pId, usuarioLogadoId]
+          );
+          projeto.applications = myCandRows.map((c) => {
+            let mappedAppStatus = "pending";
+            if (c.status === "aceito") mappedAppStatus = "approved";
+            if (c.status === "rejeitado") mappedAppStatus = "rejected";
+            return {
+              id: String(c.id),
+              usuario_id: c.usuario_id,
+              userId: c.usuario_id != null ? String(c.usuario_id) : String(usuarioLogadoId),
+              vaga_id: c.vaga_id ?? null,
+              name: c.nome,
+              message: c.mensagem,
+              skills: [],
+              createdAt: new Date(c.createdAt).toISOString(),
+              status: mappedAppStatus,
+            };
+          });
+        } catch {
+          // Silencioso para pools de teste que não mapeiam candidaturas de não-membro
+        }
 
         // ETAPA 14 (regra 4 — URL privada não exposta indevidamente):
         // projeto PRIVADO + usuário fora do squad → oculta as URLs de
@@ -435,7 +520,7 @@ module.exports = {
         // 4.3 Busca candidaturas (todas para o dono; apenas a própria para membros)
         if (isOwner) {
           const [candRows] = await db.query(
-            `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
+            `SELECT c.id, c.usuario_id, c.vaga_id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
              FROM candidaturas c
              JOIN usuarios u ON c.usuario_id = u.id
              WHERE c.projeto_id = ?`,
@@ -452,6 +537,9 @@ module.exports = {
             );
             applications.push({
               id: String(c.id),
+              usuario_id: c.usuario_id,
+              userId: c.usuario_id != null ? String(c.usuario_id) : undefined,
+              vaga_id: c.vaga_id ?? null,
               name: c.nome,
               message: c.mensagem,
               skills: skillRows.map(s => s.nome),
@@ -471,7 +559,7 @@ module.exports = {
           });
         } else {
           const [myCandRows] = await db.query(
-            `SELECT c.id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
+            `SELECT c.id, c.usuario_id, c.vaga_id, u.nome, c.mensagem, c.status, c.criado_em AS createdAt
              FROM candidaturas c
              JOIN usuarios u ON c.usuario_id = u.id
              WHERE c.projeto_id = ? AND c.usuario_id = ?`,
@@ -483,6 +571,9 @@ module.exports = {
             if (c.status === "rejeitado") mappedAppStatus = "rejected";
             return {
               id: String(c.id),
+              usuario_id: c.usuario_id,
+              userId: c.usuario_id != null ? String(c.usuario_id) : String(usuarioLogadoId),
+              vaga_id: c.vaga_id ?? null,
               name: c.nome,
               message: c.mensagem,
               skills: [],

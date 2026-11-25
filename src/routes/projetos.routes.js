@@ -35,6 +35,8 @@ router.post("/projetos/:projetoId/mensagens", verificarToken, somenteMembroOuDon
 // Candidaturas
 router.post("/projetos/:projetoId/candidaturas", verificarToken, candidaturasController.candidatarSe);
 router.get("/projetos/:projetoId/candidaturas", verificarToken, somenteDonoDoProjeto, candidaturasController.listarCandidaturas);
+router.delete("/projetos/:projetoId/candidaturas/minha", verificarToken, candidaturasController.cancelarCandidatura);
+router.delete("/projetos/:projetoId/candidaturas/:candidaturaId", verificarToken, candidaturasController.cancelarCandidatura);
 router.patch("/projetos/:projetoId/candidaturas/:candidaturaId", verificarToken, somenteDonoDoProjeto, candidaturasController.atualizarStatusCandidatura);
 
 // Membros do Squad
