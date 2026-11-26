@@ -49,6 +49,29 @@ module.exports = {
         });
       }
 
+      // Verifica status do projeto: após finalizado, membros não podem enviar mensagens, apenas o dono
+      const [projRows] = await db.query(
+        "SELECT id, status, criador_id FROM projetos WHERE id = ? LIMIT 1",
+        [projetoId]
+      );
+
+      if (projRows.length === 0) {
+        return response.status(404).json({
+          sucesso: false,
+          message: "Projeto não encontrado",
+          dados: null,
+        });
+      }
+
+      const ehDono = Number(projRows[0].criador_id) === Number(remetente_id);
+      if (projRows[0].status === "finalizado" && !ehDono) {
+        return response.status(400).json({
+          sucesso: false,
+          message: "Projeto finalizado. Membros não podem mais enviar mensagens no mural, apenas o proprietário.",
+          dados: null,
+        });
+      }
+
       const sql = `
         INSERT INTO mensagens (remetente_id, projeto_id, destinatario_id, conteudo)
         VALUES (?, ?, NULL, ?)

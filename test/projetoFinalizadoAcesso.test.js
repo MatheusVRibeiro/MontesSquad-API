@@ -148,3 +148,4 @@ describe("Regra de Acesso — Projetos Finalizados", () => {
     expect(res.body.dados.status).toBe("Finalizado");
   });
 });
+
