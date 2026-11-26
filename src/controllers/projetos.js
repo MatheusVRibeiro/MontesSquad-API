@@ -418,13 +418,9 @@ module.exports = {
       // têm acesso às tarefas, mensagens e todas as candidaturas do projeto
       const isOwner = Number(projeto.criador_id) === Number(usuarioLogadoId);
 
-      const [membPrivRows] = await db.query(
-        "SELECT id, status FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
-        [pId, usuarioLogadoId]
-      );
       const isMember =
         isOwner ||
-        membPrivRows.some((m) => !m.status || m.status === "ativo");
+        memberRows.some((m) => Number(m.id) === Number(usuarioLogadoId));
 
       // Regra de Acesso: Projeto finalizado só pode ser acessado e visualizado por quem fez parte do squad
       const isFinalizado = projeto.status === "finalizado" || mappedStatus === "Finalizado";
