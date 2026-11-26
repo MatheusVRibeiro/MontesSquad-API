@@ -143,7 +143,7 @@ async function somenteDonoDoProjeto(request, response, next) {
       });
     }
 
-    if (rows[0].criador_id !== request.usuarioAutenticado.id) {
+    if (Number(rows[0].criador_id) !== Number(request.usuarioAutenticado.id)) {
       return response.status(403).json({
         sucesso: false,
         message: "Acesso negado: Apenas o proprietário do projeto pode realizar esta ação",
@@ -196,7 +196,7 @@ async function somenteMembroOuDonoDoProjeto(request, response, next) {
       });
     }
 
-    if (ownerRows[0].criador_id === request.usuarioAutenticado.id) {
+    if (Number(ownerRows[0].criador_id) === Number(request.usuarioAutenticado.id)) {
       return next();
     }
 

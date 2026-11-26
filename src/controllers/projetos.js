@@ -39,7 +39,7 @@ module.exports = {
       if (usuarioLogadoId != null) {
         try {
           const [membrosRows] = await db.query(
-            "SELECT projeto_id FROM membros_equipe WHERE usuario_id = ? AND status = 'ativo'",
+            "SELECT projeto_id FROM membros_equipe WHERE usuario_id = ? AND (status IS NULL OR status = 'ativo')",
             [usuarioLogadoId]
           );
           membrosAtivosSet = new Set(membrosRows.map((m) => Number(m.projeto_id)));
@@ -86,6 +86,16 @@ module.exports = {
         }
 
         return base;
+      }).filter((r) => {
+        // Se o projeto estiver finalizado, apenas membros que fizeram parte ou o criador podem visualizá-lo
+        if (r.status === "finalizado") {
+          const ehMembroOuDono =
+            Number(r.criador_id) === Number(usuarioLogadoId) ||
+            (membrosAtivosSet && membrosAtivosSet.has(Number(r.id))) ||
+            Boolean(r.sou_membro);
+          return ehMembroOuDono;
+        }
+        return true;
       });
       const nItens = row.length;
 
@@ -409,12 +419,22 @@ module.exports = {
       const isOwner = Number(projeto.criador_id) === Number(usuarioLogadoId);
 
       const [membPrivRows] = await db.query(
-        "SELECT id FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
+        "SELECT id, status FROM membros_equipe WHERE projeto_id = ? AND usuario_id = ?",
         [pId, usuarioLogadoId]
       );
       const isMember =
         isOwner ||
         membPrivRows.some((m) => !m.status || m.status === "ativo");
+
+      // Regra de Acesso: Projeto finalizado só pode ser acessado e visualizado por quem fez parte do squad
+      const isFinalizado = projeto.status === "finalizado" || mappedStatus === "Finalizado";
+      if (isFinalizado && !isMember) {
+        return response.status(403).json({
+          sucesso: false,
+          message: "Acesso negado: apenas participantes que fizeram parte deste squad podem acessar este projeto finalizado.",
+          dados: null,
+        });
+      }
 
       if (!isMember) {
         projeto.tasks = [];
