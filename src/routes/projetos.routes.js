@@ -8,6 +8,7 @@ const candidaturasController = require("../controllers/candidaturas");
 const membrosController = require("../controllers/membros");
 const vagasProjetoController = require("../controllers/vagasProjeto");
 const eventosProjetoController = require("../controllers/eventosProjeto");
+const avaliacoesController = require("../controllers/avaliacoes");
 
 const {
   verificarToken,
@@ -52,5 +53,9 @@ router.delete("/projetos/:projetoId/vagas/:vagaId", verificarToken, somenteDonoD
 
 // Timeline do Projeto
 router.get("/projetos/:projetoId/eventos", verificarToken, somenteMembroOuDonoDoProjeto, eventosProjetoController.listarEventos);
+
+// Avaliações de Projeto (Peer Review / Feedback 360)
+router.get("/projetos/:projetoId/avaliacoes", verificarToken, avaliacoesController.listarAvaliacoesProjeto);
+router.post("/projetos/:projetoId/avaliacoes", verificarToken, avaliacoesController.cadastrarAvaliacao);
 
 module.exports = router;

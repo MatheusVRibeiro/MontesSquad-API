@@ -210,11 +210,73 @@ Marca todas as notificações do usuário como lidas (`read = true`).
 
 ---
 
-### 8. Reputação
+### 8. Reputação e Avaliações
 
 #### `GET /usuarios/:userId/reputacao` (Requer Token; alias `me` para o próprio usuário)
 Retorna o resumo de reputação do usuário: XP, nível, avaliações, histórico de projetos e conquistas.
 - **Contrato:** `dados` com `{ level, xp, xpProximo, reputacao, projetosConcluidos, conquistas, historico, avaliacoes }` (campos aninhados em camelCase — conferir com `references/fase02-controllers-contrato.md`).
+
+#### `GET /projetos/:projetoId/avaliacoes` (Requer Token)
+Lista as avaliações realizadas no squad do projeto e os membros que o usuário autenticado já avaliou.
+- **Resposta (200 OK):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Avaliações do projeto",
+    "dados": {
+      "avaliacoes": [
+        {
+          "id": 1,
+          "projeto_id": 10,
+          "avaliador_id": 2,
+          "avaliador_nome": "Lucas",
+          "avaliado_id": 3,
+          "avaliado_nome": "Mariana",
+          "nota": 5,
+          "comentario": "Excelente trabalho!",
+          "criado_em": "2026-03-01T12:00:00Z"
+        }
+      ],
+      "avaliadosPorMim": [3]
+    }
+  }
+  ```
+
+#### `POST /projetos/:projetoId/avaliacoes` (Requer Token)
+Registra uma avaliação (peer review) entre membros/dono do squad ao final do projeto.
+- **Regras:**
+  - Projeto deve estar com `status = 'finalizado'`.
+  - Avaliador e avaliado devem ser participantes do projeto (dono ou membro ativo do squad).
+  - Um usuário não pode avaliar a si mesmo (`avaliador_id !== avaliado_id`).
+  - **Unicidade:** Cada membro só pode avaliar outro membro **uma única vez** no mesmo projeto (`uk_projeto_avaliador_avaliado`). Tentar avaliar a mesma pessoa novamente retorna `409 Conflict`.
+- **Request Body:**
+  ```json
+  {
+    "avaliado_id": 3,
+    "nota": 5,
+    "comentario": "Ótima comunicação e pontualidade na entrega."
+  }
+  ```
+- **Resposta (201 Created):**
+  ```json
+  {
+    "sucesso": true,
+    "message": "Avaliação registrada com sucesso!",
+    "dados": {
+      "id": 15,
+      "projeto_id": 10,
+      "avaliador_id": 2,
+      "avaliado_id": 3,
+      "nota": 5,
+      "comentario": "Ótima comunicação e pontualidade na entrega."
+    }
+  }
+  ```
+- **Erros:**
+  - `400`: Dados inválidos, nota fora do intervalo 1–5, auto-avaliação, avaliado fora do squad ou projeto não finalizado.
+  - `403`: Avaliador não faz parte do squad.
+  - `404`: Projeto inexistente.
+  - `409`: Colega já avaliado neste projeto.
 
 ---
 

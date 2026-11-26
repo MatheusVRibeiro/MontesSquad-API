@@ -35,7 +35,10 @@ module.exports = {
       const u = usuarios[0];
       const level = u.nivel ?? 1;
       const xp = u.xp ?? 0;
-      const xpToNext = u.xp_para_proximo ?? 250;
+      // Garante que xpToNext represente o teto/meta acumulada do nível (ex.: 250 no level 1, 500 no level 2),
+      // corrigindo casos legados onde a coluna salvou apenas a diferença restante menor ou igual ao XP.
+      const metaNivel = Math.max(level * 250, 250);
+      const xpToNext = u.xp_para_proximo && u.xp_para_proximo > xp ? u.xp_para_proximo : metaNivel;
       const projectsCompleted = u.projetos_concluidos ?? 0;
 
       // 3. Avaliações (rating) — média e total recebidos

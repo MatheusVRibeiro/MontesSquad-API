@@ -356,6 +356,45 @@ module.exports = {
         });
       }
 
+      // Busca estado anterior da tarefa para controle de integridade de status e XP
+      let tarefaAntes = null;
+      try {
+        const [antesRows] = await db.query(
+          "SELECT status, responsavel_id, concluida_via FROM tarefas WHERE id = ? AND projeto_id = ? LIMIT 1",
+          [tarefaId, projetoId]
+        );
+        tarefaAntes = antesRows[0] || null;
+      } catch {}
+
+      // Anti-fraude: se a tarefa estava 'done' e está voltando para outro status,
+      // reverte o XP manual concedido anteriormente para o responsável.
+      if (
+        status !== undefined &&
+        status !== "done" &&
+        tarefaAntes &&
+        tarefaAntes.status === "done" &&
+        tarefaAntes.responsavel_id
+      ) {
+        try {
+          const xpService = require("../services/xp");
+          await xpService.reverterXpPorConclusaoManual({
+            usuarioId: tarefaAntes.responsavel_id,
+            tarefaId: Number(tarefaId),
+          });
+
+          try {
+            await registrarHistoricoResponsavel({
+              tarefaId: Number(tarefaId),
+              usuarioId: tarefaAntes.responsavel_id,
+              acao: "reabriu",
+              realizadoPor: request.usuarioAutenticado?.id || tarefaAntes.responsavel_id,
+            });
+          } catch {}
+        } catch (reversaoError) {
+          console.error("[tarefas] Falha ao reverter XP manual:", reversaoError.message);
+        }
+      }
+
       // 1. Atualiza dados da tarefa se fornecidos
       const fields = [];
       const values = [];

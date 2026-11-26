@@ -171,6 +171,7 @@ CREATE TABLE avaliacoes (
     nota INT CHECK (nota BETWEEN 1 AND 5),
     comentario TEXT,
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_projeto_avaliador_avaliado (projeto_id, avaliador_id, avaliado_id),
     FOREIGN KEY (avaliador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (avaliado_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (projeto_id) REFERENCES projetos(id) ON DELETE CASCADE
