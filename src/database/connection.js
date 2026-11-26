@@ -11,6 +11,8 @@ const config = {
     waitForConnections: true, // wait for connections
     connectionLimit: 10, // Pode ajustar conforme a necessidade
     queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
 };
 
 /* 
