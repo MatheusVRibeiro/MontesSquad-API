@@ -221,7 +221,7 @@ async function runSeed() {
             {
                 id: 6,
                 nome: 'Rafael Ladeira Reyes',
-                email: 'rafael.reyes@gmail.com',
+                email: 'rafaeltpamazon@gmail.com',
                 bio: 'Desenvolvedor Mobile e Engenheiro de Software. Criação de apps híbridos e nativos com Flutter e React Native.',
                 localizacao: 'Florianópolis, SC',
                 tipo: 'membro',
