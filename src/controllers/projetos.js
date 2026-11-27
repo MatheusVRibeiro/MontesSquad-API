@@ -97,6 +97,27 @@ module.exports = {
         }
         return true;
       });
+
+      // Ordenação: projetos em andamento e abertos vêm primeiro; finalizados ficam por último.
+      // Dentro do mesmo grupo de status, ordena pelos mais recentes primeiro.
+      row.sort((a, b) => {
+        const pesoStatus = (st) => {
+          if (st === "em_andamento") return 1;
+          if (st === "aberto") return 2;
+          if (st === "finalizado") return 3;
+          return 4;
+        };
+
+        const pesoA = pesoStatus(a.status);
+        const pesoB = pesoStatus(b.status);
+
+        if (pesoA !== pesoB) {
+          return pesoA - pesoB;
+        }
+
+        return Number(b.id) - Number(a.id);
+      });
+
       const nItens = row.length;
 
       return response.status(200).json({
