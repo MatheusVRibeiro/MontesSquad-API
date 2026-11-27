@@ -276,8 +276,8 @@ async function seedRafaelProjects() {
             projetos_com_entrega = 3;
     `);
 
-    // Conquistas de Rafael (1: Primeiro squad, 2: Top contributor, 4: 5 estrelas, 5: Squad builder)
-    await pool.query('INSERT IGNORE INTO conquistas_usuario (usuario_id, conquista_id) VALUES (6, 2), (6, 5);');
+    // Conquistas de Rafael (1: Primeiro squad, 4: 5 estrelas, 5: Squad builder)
+    await pool.query('INSERT IGNORE INTO conquistas_usuario (usuario_id, conquista_id) VALUES (6, 5);');
 
     // Recalcular médias globais com base nas novas avaliações
     await pool.query(`

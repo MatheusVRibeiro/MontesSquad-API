@@ -105,7 +105,6 @@ async function runSeed() {
         console.log('3. Inserindo conquistas padrão...');
         const conquistas = [
             [1, 'Primeiro Squad', 'Entrou ou criou o primeiro squad de projeto.', 'rocket'],
-            [2, 'Top Contributor', 'Entrega constante e destaque nas tarefas concluídas.', 'trophy'],
             [3, 'Code Reviewer', 'Revisou e validou entregas de código da equipe.', 'code'],
             [4, 'Excelente Desempenho', 'Recebeu nota máxima 5 em avaliação de projeto.', 'star'],
             [5, 'Squad Builder', 'Liderou um projeto até a formação completa do squad.', 'users'],
@@ -331,10 +330,10 @@ async function runSeed() {
 
         // Conquistas dos usuários
         const userConquistas = [
-            [1, 1], [1, 2], [1, 3], [1, 4], [1, 5],
-            [2, 1], [2, 2], [2, 4],
+            [1, 1], [1, 3], [1, 4], [1, 5],
+            [2, 1], [2, 4],
             [3, 1], [3, 4], [3, 6],
-            [4, 1], [4, 2], [4, 4],
+            [4, 1], [4, 4],
             [5, 1], [5, 4], [5, 5],
             [6, 1], [6, 4],
             [7, 1], [7, 3]
