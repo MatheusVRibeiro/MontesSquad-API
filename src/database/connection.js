@@ -2,27 +2,25 @@ require('dotenv').config();
 const mysql = require('mysql2/promise');
 
 // Obtém as configurações do banco de dados a partir do arquivo .env
+// O servidor MySQL remoto fecha conexões ociosas em apenas 20 segundos (wait_timeout=20s).
+// Configuramos maxIdle, idleTimeout e keepalive agressivo para nunca reusar conexões mortas.
 const config = {
-    host: process.env.BD_SERVIDOR, // endereço do servidor
-    port: process.env.BD_PORTA || 3306, // Porta padrão 3306 se não definida
-    user: process.env.BD_USUARIO, // usuário acesso banco de dados
-    password: process.env.BD_SENHA, // senha acesso banco de dados
-    database: process.env.BD_BANCO, // nome do banco de dados
-    waitForConnections: true, // wait for connections
-    connectionLimit: 10, // Pode ajustar conforme a necessidade
+    host: process.env.BD_SERVIDOR,
+    port: process.env.BD_PORTA || 3306,
+    user: process.env.BD_USUARIO,
+    password: process.env.BD_SENHA,
+    database: process.env.BD_BANCO,
+    waitForConnections: true,
+    connectionLimit: 10,
+    maxIdle: 2, // Limita conexões mantidas ociosas no pool
+    idleTimeout: 10000, // Fecha conexões ociosas após 10s (bem antes dos 20s do MySQL remoto)
     queueLimit: 0,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000,
+    keepAliveInitialDelay: 5000, // Envia keep-alive TCP a cada 5s
+    connectTimeout: 15000, // 15 segundos para timeout de conexão
 };
 
-/* 
-    -queueLimit-
-    O número máximo de solicitações de conexão que o pool enfileirará 
-    antes de retornar um erro do getConnection. Se definido como 0, não 
-    há limite para o número de solicitações de conexão enfileiradas. (Padrão: 0)
-*/
-
-// Cria o pool de conexões sincronamente para garantir que a exportação seja sempre válida
+// Cria o pool de conexões
 const pool = mysql.createPool(config);
 
 const testarConexao = async () => {
@@ -42,5 +40,3 @@ const testarConexao = async () => {
 testarConexao();
 
 module.exports = pool;
-
-

@@ -278,3 +278,4 @@ async function insertAllTasks() {
 }
 
 insertAllTasks().catch(e => { console.error(e); process.exit(1); });
+

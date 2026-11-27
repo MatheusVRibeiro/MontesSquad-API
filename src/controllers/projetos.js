@@ -436,6 +436,8 @@ module.exports = {
         projeto.tasks = [];
         projeto.messages = [];
         projeto.applications = [];
+        // Visitantes/não-membros não visualizam a lista detalhada de membros da equipe
+        projeto.members = [];
 
         // Visitante autenticado ainda deve enxergar a PRÓPRIA candidatura (se existir)
         // para que o estado "Candidatura Pendente" / "Recusado" não suma ao recarregar.
